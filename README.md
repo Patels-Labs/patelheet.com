@@ -8,4 +8,4 @@ Plain HTML, CSS and a little JavaScript; no build step. Run it locally with:
 python3 -m http.server 8788
 ```
 
-Deployed by Cloudflare Pages on every push to `main`.
+Deployed to Cloudflare Workers (static assets) on every push to `main`; config is in `wrangler.jsonc`, and `.assetsignore` keeps repo files off the site.
