@@ -135,20 +135,33 @@ a.tool:hover, a.tool.on { background-image: linear-gradient(currentColor, curren
 }
 
 /* ---------- zoom: the image grows out of its place on the page ---------- */
-.zoom {
-  position: fixed; inset: 0; z-index: 50; cursor: zoom-out;
-  background: rgba(8, 8, 9, 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0);
-  transition: background 0.45s var(--ease), backdrop-filter 0.45s var(--ease), -webkit-backdrop-filter 0.45s var(--ease);
+.zoom { position: fixed; inset: 0; z-index: 50; cursor: zoom-out; touch-action: pan-y; }
+.zoom-bg {
+  position: absolute; inset: 0; background: rgba(8, 8, 9, 0.86);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  opacity: 0; transition: opacity 0.45s var(--ease);   /* fade a fixed blur; animating the blur radius stutters */
 }
-.zoom.on { background: rgba(8, 8, 9, 0.84); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-.zoom img { position: fixed; left: 0; top: 0; transform-origin: 0 0; border-radius: 10px; will-change: transform, clip-path; }
-.zoom-close {
-  position: fixed; top: 18px; right: 18px; width: 36px; height: 36px; border-radius: 50%; border: 0;
+.zoom.on .zoom-bg { opacity: 1; }
+.zoom-img { position: fixed; left: 0; top: 0; transform-origin: 0 0; will-change: transform, clip-path, opacity; }
+.zoom-btn {
+  position: fixed; z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: 0;
   background: rgba(255, 255, 255, 0.1); color: #fff; cursor: pointer; display: grid; place-items: center;
-  opacity: 0; transition: opacity 0.3s var(--ease) 0.15s, background 0.2s;
+  opacity: 0; transition: opacity 0.3s var(--ease), background 0.2s, transform 0.3s var(--ease);
 }
-.zoom.on .zoom-close { opacity: 1; }
-.zoom-close:hover { background: rgba(255, 255, 255, 0.2); }
+.zoom.on .zoom-btn { opacity: 1; transition-delay: 0.15s, 0s, 0s; }
+.zoom-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.zoom-close { top: 18px; right: 18px; }
+.zoom-prev { left: 18px; top: 50%; margin-top: -20px; }
+.zoom-next { right: 18px; top: 50%; margin-top: -20px; }
+.zoom-prev:hover { transform: translateX(-2px); }
+.zoom-next:hover { transform: translateX(2px); }
+.zoom-count {
+  position: fixed; z-index: 2; left: 0; right: 0; bottom: 18px; text-align: center;
+  font: 400 12px/1 var(--mono); color: rgba(255, 255, 255, 0.7);
+  opacity: 0; transition: opacity 0.3s var(--ease) 0.15s;
+}
+.zoom.on .zoom-count { opacity: 1; }
+@media (max-width: 600px) { .zoom-prev, .zoom-next { display: none; } } /* swipe instead */
 [data-zoom].zooming img { visibility: hidden; }
 
 @media (prefers-reduced-motion: reduce) {

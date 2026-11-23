@@ -161,79 +161,168 @@ document.addEventListener("click", (e) => { if (current && !e.target.closest("a.
 addEventListener("scroll", () => { if (current) hover ? hide(true) : place(current); }, { passive: true });
 
 // ---------- zoom: the image grows out of its spot on the page and back ----------
-// FLIP with a clip-path, so a cropped image (object-fit: cover) opens into the full photo without stretching.
-function zoomOpen(src) {
+// FLIP with a clip-path, so a cropped image (object-fit: cover) opens into the full photo without
+// stretching. Images inside [data-gallery] form a set: ←/→, the side buttons or a swipe step through it.
+const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const tilt = document.querySelector(".desk-tilt");
+let Z = null; // the open zoom, if any
+
+function frameFor(src) {
   const img = src.querySelector("img");
-  if (!img.complete || !img.naturalWidth) return;
   const nw = img.naturalWidth, nh = img.naturalHeight;
   const [px, py] = (src.dataset.pos || "50% 50%").split(" ").map((v) => parseFloat(v) / 100);
-  const pad = innerWidth < 600 ? 12 : 48;
+  const pad = innerWidth < 600 ? 12 : 56;
   const k = Math.min((innerWidth - pad * 2) / nw, (innerHeight - pad * 2) / nh, 1.5);
   const F = { w: nw * k, h: nh * k };
-  F.x = (innerWidth - F.w) / 2; F.y = (innerHeight - F.h) / 2;
+  F.x = (innerWidth - F.w) / 2;
+  F.y = (innerHeight - F.h) / 2;
+  const radius = parseFloat(getComputedStyle(src).borderRadius) || 10;
+  return {
+    img, F,
+    full: { transform: `translate(${F.x}px, ${F.y}px) scale(1)`, clipPath: "inset(0px 0px 0px 0px round 10px)", opacity: 1 },
+    // where the image sits on the page right now, as a transform + clip of the full-size clone
+    from() {
+      const S = img.getBoundingClientRect();
+      const sc = Math.max(S.width / nw, S.height / nh);   // object-fit: cover scale
+      const w = nw * sc, h = nh * sc;
+      const ox = (w - S.width) * px, oy = (h - S.height) * py;
+      const q = w / F.w;
+      return {
+        transform: `translate(${S.left - ox}px, ${S.top - oy}px) scale(${q})`,
+        clipPath: `inset(${oy / q}px ${(w - S.width - ox) / q}px ${(h - S.height - oy) / q}px ${ox / q}px round ${radius / q}px)`,
+        opacity: 1,
+      };
+    },
+  };
+}
+
+function cloneFor(g) {
+  const big = document.createElement("img");
+  big.className = "zoom-img";
+  big.src = g.img.currentSrc || g.img.src;
+  big.alt = g.img.alt;
+  big.style.width = `${g.F.w}px`;
+  big.style.height = `${g.F.h}px`;
+  return big;
+}
+
+// snapshot whatever state an element is mid-animation in, so the next animation starts from there
+function settle(el) {
+  const cs = getComputedStyle(el);
+  const now = { transform: cs.transform, clipPath: cs.clipPath, opacity: cs.opacity };
+  el.getAnimations().forEach((a) => a.cancel());
+  return now;
+}
+
+function freezeTilt() {
+  if (!tilt) return;
+  tilt.classList.remove("live");
+  tilt.style.transition = "none";
+  tilt.style.setProperty("--rx", "0deg");
+  tilt.style.setProperty("--ry", "0deg");
+  tilt.getBoundingClientRect();        // apply now, so measurements see a flat photo
+  tilt.style.transition = "";
+}
+
+function zoomOpen(src, viaKeyboard) {
+  if (Z) return;
+  const first = src.querySelector("img");
+  if (!first.complete || !first.naturalWidth) return;
+  freezeTilt();
+  const gallery = src.closest("[data-gallery]");
+  const items = gallery ? [...gallery.querySelectorAll("[data-zoom]")] : [src];
+  const multi = items.length > 1;
 
   const layer = document.createElement("div");
   layer.className = "zoom";
   layer.setAttribute("role", "dialog");
   layer.setAttribute("aria-modal", "true");
-  layer.setAttribute("aria-label", img.alt || "Image");
-  layer.innerHTML = `<img alt=""><button class="zoom-close" type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>`;
-  const big = layer.querySelector("img");
-  big.src = img.currentSrc || img.src;
-  big.alt = img.alt;
-  big.style.width = `${F.w}px`;
-  big.style.height = `${F.h}px`;
+  layer.innerHTML = `<div class="zoom-bg"></div>
+    <button class="zoom-btn zoom-close" type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    ${multi ? `<button class="zoom-btn zoom-prev" type="button" aria-label="Previous image"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M9 2 4 7l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="zoom-btn zoom-next" type="button" aria-label="Next image"><svg width="14" height="14" viewBox="0 0 14 14"><path d="m5 2 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <div class="zoom-count" aria-live="polite"></div>` : ""}`;
   document.body.append(layer);
 
-  // where the image sits on the page right now, as a transform + clip of the full-size clone
-  const fromPage = () => {
-    const S = img.getBoundingClientRect();
-    const s = Math.max(S.width / nw, S.height / nh);        // object-fit: cover scale
-    const shownW = nw * s, shownH = nh * s;
-    const offX = (shownW - S.width) * px, offY = (shownH - S.height) * py;
-    const q = shownW / F.w;                                 // clone scale
-    const r = parseFloat(getComputedStyle(img.closest("[data-zoom]")).borderRadius) || 10;
-    return {
-      transform: `translate(${S.left - offX}px, ${S.top - offY}px) scale(${q})`,
-      clipPath: `inset(${offY / q}px ${(shownW - S.width - offX) / q}px ${(shownH - S.height - offY) / q}px ${offX / q}px round ${r / q}px)`,
-    };
-  };
-  const full = { transform: `translate(${F.x}px, ${F.y}px) scale(1)`, clipPath: `inset(0px 0px 0px 0px round 10px)` };
-  const timing = { duration: reduceMotion ? 0 : 560, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" };
+  Z = { layer, items, i: items.indexOf(src), g: frameFor(src), big: null, closing: false };
+  Z.big = cloneFor(Z.g);
+  layer.append(Z.big);
+  layer.setAttribute("aria-label", Z.g.img.alt || "Image");
+  const count = layer.querySelector(".zoom-count");
+  const label = () => count && (count.textContent = `${Z.i + 1} / ${items.length}`);
+  label();
 
   src.classList.add("zooming");
-  big.animate([fromPage(), full], timing);
+  Z.big.animate([Z.g.from(), Z.g.full], { duration: reduceMotion ? 0 : 560, easing: EASE, fill: "both" });
   requestAnimationFrame(() => layer.classList.add("on"));
   const prevFocus = document.activeElement;
-  layer.querySelector(".zoom-close").focus({ preventScroll: true });
+  layer.querySelector(".zoom-close").focus({ preventScroll: true, focusVisible: !!viaKeyboard });
 
-  let closing = false;
+  const go = (d) => {
+    if (!multi || Z.closing) return;
+    const j = (Z.i + d + items.length) % items.length;
+    const old = Z.big, oldNow = settle(old), oldG = Z.g;
+    const shift = (t, dx) => t.replace(/translate\(([-\d.]+)px/, (_, x) => `translate(${parseFloat(x) + dx}px`);
+    old.animate([oldNow, { ...oldG.full, transform: shift(oldG.full.transform, -70 * d), opacity: 0 }],
+      { duration: reduceMotion ? 0 : 300, easing: EASE, fill: "forwards" }).finished.then(() => old.remove());
+    items[Z.i].classList.remove("zooming");
+    items[j].classList.add("zooming");
+    Z.i = j;
+    Z.g = frameFor(items[j]);
+    Z.big = cloneFor(Z.g);
+    layer.append(Z.big);
+    layer.setAttribute("aria-label", Z.g.img.alt || "Image");
+    Z.big.animate([{ ...Z.g.full, transform: shift(Z.g.full.transform, 70 * d), opacity: 0 }, Z.g.full],
+      { duration: reduceMotion ? 0 : 460, easing: EASE, fill: "both" });
+    label();
+  };
+
   const close = () => {
-    if (closing) return;
-    closing = true;
+    if (Z.closing) return;
+    Z.closing = true;
+    const { big, g, items: its, i } = Z;
     layer.classList.remove("on");
-    big.animate([full, fromPage()], { ...timing, duration: reduceMotion ? 0 : 460 }).finished.then(() => {
-      src.classList.remove("zooming");
-      layer.remove();
-      prevFocus?.focus?.({ preventScroll: true });
-    });
+    big.animate([settle(big), g.from()], { duration: reduceMotion ? 0 : 520, easing: EASE, fill: "both" })
+      .finished.then(() => {
+        its[i].classList.remove("zooming");             // show the page image first...
+        requestAnimationFrame(() => layer.remove());     // ...then drop the clone, so there's no flicker
+      });
+    layer.querySelectorAll("img.zoom-img").forEach((el) => { if (el !== big) el.remove(); });
     removeEventListener("keydown", onKey);
     removeEventListener("scroll", close);
+    prevFocus?.focus?.({ preventScroll: true, focusVisible: !!viaKeyboard });
+    Z = null;
   };
-  const onKey = (e) => { if (e.key === "Escape") close(); };
-  layer.addEventListener("click", close);
+  const onKey = (e) => {
+    if (e.key === "Escape") close();
+    else if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
+  };
+  let downX = null, swiped = false;
+  layer.addEventListener("pointerdown", (e) => { downX = e.clientX; swiped = false; });
+  layer.addEventListener("pointerup", (e) => {
+    if (downX !== null && Math.abs(e.clientX - downX) > 50) { swiped = true; go(e.clientX < downX ? 1 : -1); }
+    downX = null;
+  });
+  layer.addEventListener("click", (e) => {
+    if (swiped) return;
+    if (e.target.closest(".zoom-prev")) return go(-1);
+    if (e.target.closest(".zoom-next")) return go(1);
+    close();
+  });
   addEventListener("keydown", onKey);
-  addEventListener("scroll", close, { passive: true, once: true });
+  addEventListener("scroll", close, { passive: true });
 }
+
 document.querySelectorAll("[data-zoom]").forEach((el) => {
-  el.addEventListener("click", (e) => { if (!e.target.closest(".spot")) zoomOpen(el); });
-  el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); zoomOpen(el); } });
+  el.addEventListener("click", (e) => { if (!e.target.closest(".spot")) zoomOpen(el, false); });
+  el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); zoomOpen(el, true); } });
 });
 
 // ---------- desk photo: tilts toward the cursor, with a soft sheen ----------
-const tilt = document.querySelector(".desk-tilt");
 if (tilt && hover && !reduceMotion) {
   tilt.addEventListener("pointermove", (e) => {
+    if (Z) return;
     const r = tilt.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
     tilt.classList.add("live");
