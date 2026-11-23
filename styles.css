@@ -214,6 +214,7 @@ a.row:hover .name::after, a.row:focus-visible .name::after { opacity: 1; transfo
 /* thumbnails: project logo, or a letter tile when there isn't one */
 .rows:not(.plain):not(.bare) .row { grid-template-columns: 30px 10.5rem 1fr auto; align-items: center; }
 .rows:not(.plain):not(.bare) .desc { grid-column: 2 / -1; }
+.rows.bare .row { grid-template-columns: calc(30px + 16px + 10.5rem) 1fr auto; } /* lines its text up with the labs rows */
 .thumb { width: 30px; height: 30px; position: relative; top: -0.5px; /* undo the row's optical text offset */ display: grid; place-items: center; transition: transform 0.45s var(--ease); }
 .thumb img { width: 26px; height: 26px; object-fit: contain; display: block; border-radius: 6px; }
 .thumb.px img { border-radius: 50%; }
