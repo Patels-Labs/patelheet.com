@@ -1,7 +1,7 @@
 {
   // Static site on Cloudflare Workers (static assets, no Worker script).
   // "name" must match the project name in the Cloudflare dashboard.
-  "name": "patelheet",
+  "name": "patelheet-com",
   "compatibility_date": "2026-11-23",
   "assets": {
     "directory": "."
