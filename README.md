@@ -13,5 +13,5 @@ Deployed to Cloudflare Workers (static assets) on every push to `main`; config i
 ---
 
 <p align="center">
-  <a href="https://github.com/Patels-Labs"><img alt="A Patel's Labs project" src="https://raw.githubusercontent.com/Patels-Labs/.github/main/brand/badge.png" height="40"></a>
+  <a href="https://github.com/Patels-Labs"><img alt="A Patel's Labs project" src="https://raw.githubusercontent.com/Patels-Labs/.github/main/brand/badge-light.png#gh-light-mode-only" height="40"><img alt="A Patel's Labs project" src="https://raw.githubusercontent.com/Patels-Labs/.github/main/brand/badge-dark.png#gh-dark-mode-only" height="40"></a>
 </p>
