@@ -86,7 +86,7 @@ document.querySelectorAll(".row[data-desc]").forEach((row, i) => {
 
 // Hover preview card that trails the cursor (pointer devices only).
 const peek = document.getElementById("peek");
-if (matchMedia("(hover: hover)").matches) {
+if (peek && matchMedia("(hover: hover)").matches) {
   const desc = peek.querySelector(".peek-desc"), stack = peek.querySelector(".peek-stack");
   let tx = 0, ty = 0, x = 0, y = 0, raf = 0;
   const place = () => {
@@ -117,8 +117,8 @@ if (matchMedia("(hover: hover)").matches) {
 
 // Email: copy the address and say so; falls back to mailto without JS or clipboard.
 const copy = document.getElementById("copy");
-const label = copy.querySelector(".copy-label");
-copy.addEventListener("click", async (e) => {
+copy?.addEventListener("click", async (e) => {
+  const label = copy.querySelector(".copy-label");
   if (!navigator.clipboard) return;
   e.preventDefault();
   try { await navigator.clipboard.writeText(copy.dataset.email); } catch { location.href = copy.href; return; }
