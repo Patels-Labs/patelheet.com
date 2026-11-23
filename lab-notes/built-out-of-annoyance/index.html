@@ -54,7 +54,23 @@
   <main id="main">
     <article class="post">
       <a class="back" href="/#notes-h" aria-label="Back to home"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-      <button class="hero rv" type="button" data-zoom><img src="/assets/notes/built-out-of-annoyance/desk.jpg" alt="My desk: a MacBook Pro on a stand, an MSI monitor, a NuPhy keyboard on a NuPhy Orbit deskmat, a Razer mouse, Sonos Ace headphones and a Checkout.com bottle, under two shelves" width="1200" height="1600"></button>
+      <figure class="desk rv">
+        <div class="desk-tilt">
+          <div class="desk-photo" data-zoom data-pos="50% 62%" tabindex="0" role="button" aria-label="Open the desk photo">
+            <img src="/assets/notes/built-out-of-annoyance/desk.jpg" alt="My desk: a MacBook Pro on a stand, an MSI monitor, a NuPhy keyboard on a NuPhy Orbit deskmat, a Razer mouse, Sonos Ace headphones and a Checkout.com bottle, under two shelves" width="1200" height="1600">
+            <span class="desk-sheen" aria-hidden="true"></span>
+          </div>
+          <button class="spot" type="button" data-tool="nextgen" style="--x:42.8%;--y:9.5%" aria-label="#NextGen sticker"></button>
+          <button class="spot" type="button" data-tool="vaccine" style="--x:51.3%;--y:10.5%" aria-label="COVID vaccine sticker"></button>
+          <button class="spot" type="button" data-tool="bottle" style="--x:14%;--y:45%" aria-label="Checkout.com bottle"></button>
+          <button class="spot" type="button" data-tool="msi" style="--x:73.8%;--y:38%" aria-label="Monitor"></button>
+          <button class="spot" type="button" data-tool="nuphynode" style="--x:40%;--y:65%" aria-label="Keyboard"></button>
+          <button class="spot" type="button" data-tool="razer" style="--x:59.8%;--y:58.3%" aria-label="Mouse"></button>
+          <button class="spot" type="button" data-tool="sonos" style="--x:71.9%;--y:61.7%" aria-label="Headphones"></button>
+          <button class="spot" type="button" data-tool="orbit" style="--x:62.5%;--y:66.5%" aria-label="Deskmat"></button>
+        </div>
+        <figcaption class="desk-hint"><span class="hint-dot" aria-hidden="true"></span>Everything with a dot has a story. Hover, or tap on a phone.</figcaption>
+      </figure>
       <h1 class="rv">Built Out of Annoyance</h1>
       <p class="date rv"><time datetime="2026-11">November 2026</time></p>
 <p class="rv">People keep asking what I actually use. Fair enough. I've got a site full of projects now, and most of them exist for one slightly petty reason: something annoyed me. That's the whole philosophy, if you can even call it one. When a tool annoys me enough, I build my own.</p>
@@ -69,7 +85,7 @@
 
 <p class="rv">The monitor is an <a class="tool" data-tool="msi">MSI MAG242C</a>. It's a cheap one. I bought it in my first year of uni with birthday money and a pile of Currys PC World gift cards, and it's still the one I'm staring at.</p>
 
-<p class="rv">The keyboard is a <a class="tool" data-tool="nuphy">NuPhy</a> Node 75, the high-profile one, with Red Max switches. It sits on a NuPhy Orbit deskmat, which is really cool, and I won't be taking criticism on that.</p>
+<p class="rv">The keyboard is a <a class="tool" data-tool="nuphynode">NuPhy Node 75</a>, the high-profile one, with Red Max switches. It sits on a <a class="tool" data-tool="orbit">NuPhy Orbit deskmat</a>, which is really cool, and I won't be taking criticism on that.</p>
 
 <p class="rv">The mouse is a <a class="tool" data-tool="razer">Razer Basilisk V3</a>, and this is where the annoyance starts. Razer doesn't provide customisation support on macOS, so for basic support I have to resort to a third-party app, <a class="tool" data-tool="razermacos">Razer macOS</a>. A mouse shouldn't need someone else's app just to work properly. I'm thinking of switching.</p>
 
@@ -83,17 +99,17 @@
 
 <p class="rv">The theme is <a class="tool" data-tool="catppuccin">Catppuccin</a> Mocha, and has been for probably three years now. Fonts rotate between the <a class="tool" data-tool="nerdfonts">Nerd Fonts</a>: FiraCode, Hack Nerd, JetBrains Mono, that kind of thing.</p>
 
-<figure class="rv">
-  <button class="shot" type="button" data-zoom><img src="/assets/notes/built-out-of-annoyance/zed.jpg" alt="Zed with a JSON tuning file open, the Nomad Express project tree on the right" width="1600" height="1000" loading="lazy"></button>
-  <figcaption>Zed, while I tune Nomad Express.</figcaption>
-</figure>
 
 <p class="rv">The terminal is <a class="tool" data-tool="kitty">kitty</a> on my own machine and <a class="tool" data-tool="iterm">iTerm2</a> at work, because that's basically what my company lets me use. I'm not sad about it. I'm a little sad about it. The shell is <a class="tool" data-tool="zsh">zsh</a>, always.</p>
 
-<figure class="rv">
-  <button class="shot" type="button" data-zoom><img src="/assets/notes/built-out-of-annoyance/terminal.png" alt="A terminal running Nomad Express through Gradle, loading items, recipes, NPCs and perks" width="1264" height="707" loading="lazy"></button>
-  <figcaption>My terminal, running Nomad Express.</figcaption>
+<figure class="stack rv">
+  <div class="stack-cards">
+    <div class="card c1" data-zoom tabindex="0" role="button" aria-label="Open the Zed screenshot"><img src="/assets/notes/built-out-of-annoyance/zed.jpg" alt="Zed with a JSON tuning file open, the Nomad Express project tree on the right" width="1600" height="1000" loading="lazy"></div>
+    <div class="card c2" data-zoom tabindex="0" role="button" aria-label="Open the terminal screenshot"><img src="/assets/notes/built-out-of-annoyance/terminal.png" alt="A terminal running Nomad Express through Gradle, loading items, recipes, NPCs and perks" width="1264" height="707" loading="lazy"></div>
+  </div>
+  <figcaption>Zed while I tune Nomad Express, and my terminal running it.</figcaption>
 </figure>
+
 
 <h2 class="rv">What's in My Dock</h2>
 
