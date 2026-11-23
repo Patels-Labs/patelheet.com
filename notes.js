@@ -2,16 +2,16 @@
 // Tools are keyed by the data-tool attribute on <a class="tool">.
 const TOOLS = {
   zed: ["Zed", "Code editor", "A fast, minimal code editor.", "https://zed.dev"],
-  orca: ["Orca", "ADE", "An agentic development environment for orchestrating coding agents."],
+  orca: ["Orca", "ADE", "An agentic development environment for orchestrating coding agents.", "https://orca.dev"],
   catppuccin: ["Catppuccin", "Theme", "A soothing pastel colour theme. Mocha is its darkest flavour.", "https://catppuccin.com"],
   nerdfonts: ["Nerd Fonts", "Fonts", "Programming fonts patched with thousands of icons and glyphs.", "https://www.nerdfonts.com"],
   kitty: ["kitty", "Terminal", "A fast, GPU-based terminal emulator.", "https://sw.kovidgoyal.net/kitty/"],
   iterm: ["iTerm2", "Terminal", "A terminal emulator for macOS.", "https://iterm2.com"],
   zsh: ["zsh", "Shell", "The Z shell. The default shell on macOS.", "https://www.zsh.org"],
-  kepler: ["Kepler", "Launcher", "A macOS launcher by cheetahbyte.", "https://github.com/cheetahbyte"],
+  kepler: ["Kepler", "Launcher", "A macOS launcher by cheetahbyte.", "https://trykepler.app"],
   helium: ["Helium", "Browser", "A lightweight, private Chromium-based browser.", "https://helium.computer"],
-  radian: ["Radian", "Browser", "A browser that hasn't been released yet."],
-  yab: ["YAB", "Browser", "YetAnotherBrowser. My work browser."],
+  radian: ["Radian", "Browser", "A browser that hasn't been released yet. The link is its Discord.", "https://discord.gg/XN8k4eeAeY"],
+  yab: ["YAB", "Browser", "YetAnotherBrowser. My work browser.", "https://yetanotherbrowser.com"],
   notes: ["Apple Notes", "Notes", "The notes app that comes with every Mac and iPhone."],
   spotify: ["Spotify", "Music", "Music streaming.", "https://open.spotify.com"],
   discord: ["Discord", "Chat", "Voice, video and text chat for communities.", "https://discord.com"],
@@ -21,17 +21,21 @@ const TOOLS = {
   cleanshot: ["CleanShot X", "Screenshots", "A screenshot and screen recording app for Mac.", "https://cleanshot.com"],
   cubby: ["Cubby", "Patel's Labs", "A local-only clipboard history for macOS, in a drawer at the edge of your screen.", "https://github.com/Patels-Labs/cubby", "/assets/work/cubby.png"],
   glint: ["Glint", "Patel's Labs", "Fast, local-only screenshots for macOS: capture, annotate, pin and share.", "https://github.com/Patels-Labs/glint", "/assets/work/glint.png"],
-  serenity: ["Serenity", "Patel's Labs", "A Discord bot that sets slowmode from channel activity, grown into a moderation platform.", null, "/assets/work/serenity.svg"],
+  serenity: ["Serenity", "Patel's Labs", "A Discord bot that sets slowmode from channel activity, grown into a moderation platform.", "https://serenitybot.app", "/assets/work/serenity.svg"],
   capitalengine: ["CapitalEngine", "Patel's Labs", "A modular economy for Minecraft Paper servers.", "https://github.com/Patels-Labs/CapitalEngine", "/assets/work/capitalengine.png"],
   bertha: ["Big Bertha", "Patel's Labs", "A self-hosted dashboard for my Docker host: containers, logs and compose in one place.", null, "/assets/work/big-bertha.svg"],
   nomad: ["Nomad Express", "Patel's Labs", "A cozy pixel-art farming and cooking game on a moving train.", null, "/assets/work/nomad-express.png"],
-  homegrown: ["HomeGrown", "Game", "An indie game in pre-release, and a big inspiration for Nomad Express."],
+  homegrown: ["HomeGrown", "Game", "An indie game in pre-release, and a big inspiration for Nomad Express.", "https://store.steampowered.com/app/1894560/HomeGrown/"],
   minecraft: ["Minecraft", "Game", "The block game.", "https://www.minecraft.net"],
-  nuphy: ["NuPhy", "Keyboards", "Low and high-profile mechanical keyboards and desk gear.", "https://nuphy.com"],
+  nuphynode: ["NuPhy Node 75", "Keyboard", "High-profile, with Red Max switches.", "https://nuphy.com/products/nuphy-node-series-high-profile"],
+  orbit: ["NuPhy Orbit", "Deskmat", "A really cool deskmat. No criticism accepted.", "https://nuphy.com/products/nuphy-orbit-deskmat?variant=42060930646125"],
+  bottle: ["Checkout.com bottle", "Desk", "A Checkout.com water bottle."],
+  nextgen: ["#NextGen sticker", "Sticker", "From NextGen, the Checkout.com graduate community."],
+  vaccine: ["COVID vaccine sticker", "Sticker", "Sitting proudly right next to the NextGen one."],
   razer: ["Razer Basilisk V3", "Mouse", "A customisable gaming mouse from Razer.", "https://www.razer.com"],
   razermacos: ["Razer macOS", "Driver", "A community app that brings Razer device support to macOS.", "https://github.com/1kc/razer-macos"],
   msi: ["MSI MAG242C", "Monitor", "A 24-inch curved gaming monitor from MSI.", "https://www.msi.com"],
-  sonos: ["Sonos Ace", "Headphones", "Sonos's over-ear headphones.", "https://www.sonos.com"],
+  sonos: ["Sonos Ace", "Headphones", "Sonos's over-ear headphones.", "https://www.sonos.com/en-gb/shop/sonos-ace-ultra"],
   airpods: ["AirPods Pro", "Earbuds", "Apple's noise-cancelling earbuds.", "https://www.apple.com/airpods-pro/"],
   python: ["Python", "Language", "A readable, general-purpose programming language.", "https://www.python.org"],
   uv: ["uv", "Python tooling", "An extremely fast Python package and project manager.", "https://docs.astral.sh/uv/"],
@@ -129,7 +133,8 @@ function hide(now) {
 }
 
 const hover = matchMedia("(hover: hover)").matches;
-document.querySelectorAll("a.tool").forEach((a) => {
+document.querySelectorAll("a.tool, .spot").forEach((a, n) => {
+  a.style.setProperty("--n", n);
   const t = TOOLS[a.dataset.tool];
   if (!t) return console.warn("unknown tool", a.dataset.tool);
   if (t[3] && !a.hasAttribute("href")) {
@@ -152,28 +157,97 @@ document.querySelectorAll("a.tool").forEach((a) => {
 pop.addEventListener("pointerenter", () => clearTimeout(hideT));
 pop.addEventListener("pointerleave", () => hide());
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(true); });
-document.addEventListener("click", (e) => { if (current && !e.target.closest("a.tool, .pop")) hide(true); });
+document.addEventListener("click", (e) => { if (current && !e.target.closest("a.tool, .spot, .pop")) hide(true); });
 addEventListener("scroll", () => { if (current) hover ? hide(true) : place(current); }, { passive: true });
 
-// ---------- lightbox ----------
-const box = document.createElement("dialog");
-box.className = "lightbox";
-box.innerHTML = `<img alt="">`;
-document.body.append(box);
-const boxImg = box.querySelector("img");
-document.querySelectorAll("[data-zoom]").forEach((b) => b.addEventListener("click", () => {
-  const img = b.querySelector("img");
-  boxImg.src = img.currentSrc || img.src;
-  boxImg.alt = img.alt;
-  box.showModal();
-  requestAnimationFrame(() => box.classList.add("on"));
-}));
-const closeBox = () => {
-  box.classList.remove("on");
-  setTimeout(() => box.close(), reduceMotion ? 0 : 300);
-};
-box.addEventListener("click", closeBox);
-box.addEventListener("cancel", (e) => { e.preventDefault(); closeBox(); });
+// ---------- zoom: the image grows out of its spot on the page and back ----------
+// FLIP with a clip-path, so a cropped image (object-fit: cover) opens into the full photo without stretching.
+function zoomOpen(src) {
+  const img = src.querySelector("img");
+  if (!img.complete || !img.naturalWidth) return;
+  const nw = img.naturalWidth, nh = img.naturalHeight;
+  const [px, py] = (src.dataset.pos || "50% 50%").split(" ").map((v) => parseFloat(v) / 100);
+  const pad = innerWidth < 600 ? 12 : 48;
+  const k = Math.min((innerWidth - pad * 2) / nw, (innerHeight - pad * 2) / nh, 1.5);
+  const F = { w: nw * k, h: nh * k };
+  F.x = (innerWidth - F.w) / 2; F.y = (innerHeight - F.h) / 2;
+
+  const layer = document.createElement("div");
+  layer.className = "zoom";
+  layer.setAttribute("role", "dialog");
+  layer.setAttribute("aria-modal", "true");
+  layer.setAttribute("aria-label", img.alt || "Image");
+  layer.innerHTML = `<img alt=""><button class="zoom-close" type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>`;
+  const big = layer.querySelector("img");
+  big.src = img.currentSrc || img.src;
+  big.alt = img.alt;
+  big.style.width = `${F.w}px`;
+  big.style.height = `${F.h}px`;
+  document.body.append(layer);
+
+  // where the image sits on the page right now, as a transform + clip of the full-size clone
+  const fromPage = () => {
+    const S = img.getBoundingClientRect();
+    const s = Math.max(S.width / nw, S.height / nh);        // object-fit: cover scale
+    const shownW = nw * s, shownH = nh * s;
+    const offX = (shownW - S.width) * px, offY = (shownH - S.height) * py;
+    const q = shownW / F.w;                                 // clone scale
+    const r = parseFloat(getComputedStyle(img.closest("[data-zoom]")).borderRadius) || 10;
+    return {
+      transform: `translate(${S.left - offX}px, ${S.top - offY}px) scale(${q})`,
+      clipPath: `inset(${offY / q}px ${(shownW - S.width - offX) / q}px ${(shownH - S.height - offY) / q}px ${offX / q}px round ${r / q}px)`,
+    };
+  };
+  const full = { transform: `translate(${F.x}px, ${F.y}px) scale(1)`, clipPath: `inset(0px 0px 0px 0px round 10px)` };
+  const timing = { duration: reduceMotion ? 0 : 560, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" };
+
+  src.classList.add("zooming");
+  big.animate([fromPage(), full], timing);
+  requestAnimationFrame(() => layer.classList.add("on"));
+  const prevFocus = document.activeElement;
+  layer.querySelector(".zoom-close").focus({ preventScroll: true });
+
+  let closing = false;
+  const close = () => {
+    if (closing) return;
+    closing = true;
+    layer.classList.remove("on");
+    big.animate([full, fromPage()], { ...timing, duration: reduceMotion ? 0 : 460 }).finished.then(() => {
+      src.classList.remove("zooming");
+      layer.remove();
+      prevFocus?.focus?.({ preventScroll: true });
+    });
+    removeEventListener("keydown", onKey);
+    removeEventListener("scroll", close);
+  };
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+  layer.addEventListener("click", close);
+  addEventListener("keydown", onKey);
+  addEventListener("scroll", close, { passive: true, once: true });
+}
+document.querySelectorAll("[data-zoom]").forEach((el) => {
+  el.addEventListener("click", (e) => { if (!e.target.closest(".spot")) zoomOpen(el); });
+  el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); zoomOpen(el); } });
+});
+
+// ---------- desk photo: tilts toward the cursor, with a soft sheen ----------
+const tilt = document.querySelector(".desk-tilt");
+if (tilt && hover && !reduceMotion) {
+  tilt.addEventListener("pointermove", (e) => {
+    const r = tilt.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    tilt.classList.add("live");
+    tilt.style.setProperty("--ry", `${(x - 0.5) * 6}deg`);
+    tilt.style.setProperty("--rx", `${(0.5 - y) * 6}deg`);
+    tilt.style.setProperty("--sx", `${x * 100}%`);
+    tilt.style.setProperty("--sy", `${y * 100}%`);
+  });
+  tilt.addEventListener("pointerleave", () => {
+    tilt.classList.remove("live");
+    tilt.style.setProperty("--rx", "0deg");
+    tilt.style.setProperty("--ry", "0deg");
+  });
+}
 
 // ---------- scroll reveal ----------
 const io = new IntersectionObserver((entries) => entries.forEach((en) => {
