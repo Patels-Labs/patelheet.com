@@ -1,0 +1,117 @@
+<!doctype html>
+<!-- Source for /HEET_PATEL_CV.pdf. Rebuild with: sh cv/build.sh -->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Heet Patel - CV</title>
+<style>
+  @page { size: A4; margin: 0.75in; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 11pt/1.15 Arial, Helvetica, sans-serif; color: #000; }
+  header { text-align: center; margin-bottom: 12pt; }
+  h1 { margin: 0; font-size: 24pt; font-weight: bold; }
+  .role { margin: 3pt 0 4pt; font-size: 13pt; font-weight: bold; color: #333; }
+  .contact { margin: 0 0 6pt; font-size: 10pt; color: #444; }
+  .links { margin: 0; font-size: 10pt; }
+  a { color: #1155cc; }
+  h2 { margin: 14pt 0 6pt; font-size: 14pt; text-transform: uppercase; break-after: avoid; }
+  h3 { margin: 10pt 0 4pt; font-size: 12pt; color: #333; break-after: avoid; }
+  .where { margin: 0 0 2pt; font-weight: bold; }
+  .where i { font-weight: normal; }
+  p { margin: 0 0 4pt; }
+  ul { margin: 0 0 4pt; padding-left: 0.75in; }
+  li { padding-left: 2pt; list-style: "\2022\00a0\00a0\00a0"; }
+  .entry { break-inside: avoid; }
+  .skills { columns: 2; column-gap: 0.3in; }
+  .skills p { break-inside: avoid; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HEET PATEL</h1>
+  <p class="role">Graduate Software Engineer</p>
+  <p class="contact">London | heetkpatel30@gmail.com</p>
+  <p class="links"><a href="https://patelheet.com">Portfolio</a> | <a href="https://linkedin.com/in/patelheet30">LinkedIn</a> | <a href="https://github.com/patelheet30">GitHub</a></p>
+</header>
+
+<p>Graduate Software Engineer at Checkout.com with a First Class BSc in Data Science from Nottingham Trent University. Outside work I build and release software under Patel&rsquo;s Labs: a Discord moderation platform running in 75+ servers, native apps for Mac and iOS, and a pixel-art game written in Java.</p>
+
+<h2>Professional Experience</h2>
+
+<div class="entry">
+  <h3>Graduate Software Engineer</h3>
+  <p class="where"><i>Checkout.com</i> | London | 2026 - Present</p>
+  <ul>
+    <li>Worked on the Orchestration product, helping centralise shared CI/CD pipelines so multiple services build, test and deploy through one common pipeline instead of each maintaining their own.</li>
+    <li>Took ownership of secrets management and resolution for Orchestration services, reducing the risk of credentials being leaked during Docker deployments.</li>
+    <li>Led the system design and architecture review for the Orchestration MCP (Model Context Protocol) server, which lets AI assistants work with Orchestration services, and identified limitations in those services that restricted what the MCP server could do.</li>
+  </ul>
+</div>
+
+<div class="entry">
+  <h3>Data Analyst Intern</h3>
+  <p class="where"><i>Future Centre Storage &amp; Distribution Ltd</i> | Aylesbury | Summer 2024</p>
+</div>
+
+<div class="entry">
+  <h3>Data Analyst Intern</h3>
+  <p class="where"><i>Astute Healthcare</i> | Aylesbury Office | Summer 2023</p>
+</div>
+
+<h2>Projects</h2>
+
+<p class="entry"><b>Serenity - Discord Moderation Platform:</b> Started as a bot that sets slowmode automatically from channel activity, and grew into a moderation platform with cases, tickets and an audit log. It now runs in 75+ Discord servers, built in Python with PostgreSQL, deployed with Docker and monitored through Grafana.</p>
+
+<p class="entry"><b>Nomad Express - Pixel-Art Game (In Beta):</b> A farming and cooking game set on a moving train, with a procedurally generated world, a modular train base and a reputation economy. Written in Java with libGDX, with releases to itch.io automated through GitHub workflows.</p>
+
+<p class="entry"><b>Reverse Engineer Shazam:</b> Awarded the departmental Best Mathematics Project Award for recreating Shazam&rsquo;s music recognition technology by converting audio into spectrograms and matching their unique digital fingerprints. I developed the signal processing backend using Python, Librosa, and NumPy, applying Fourier techniques and spectral hashing, paired with a NextJS frontend. Matches songs in under eight seconds on a laptop, documented in a 90-page technical dissertation.</p>
+
+<h2>Education</h2>
+
+<div>
+  <h3>BSc Data Science - First Class Honours</h3>
+  <p class="where"><i>Nottingham Trent University</i> | September 2022 - July 2025</p>
+  <p><b>Research Projects:</b></p>
+  <div class="entry">
+  <p><b>Deep Learning Computer Vision System</b></p>
+  <ul>
+    <li>Retrained convolutional neural networks (Resnet50, EfficientNetB0) for the classification of music album artwork</li>
+    <li>Achieved ~70% classification accuracy through ensemble modelling.</li>
+    <li>Integrated the Spotify Web API with a local SQLite database to create a contextually-aware conversational AI system</li>
+  </ul>
+  </div>
+  <div class="entry">
+  <p><b>Big Data Analytics Platform</b></p>
+  <ul>
+    <li>Orchestrated multi-node Hadoop cluster for large-scale vehicular accident analysis</li>
+    <li>Implemented MapReduce algorithms for severity-based incident clustering</li>
+  </ul>
+  </div>
+</div>
+
+<h2>Technical Expertise</h2>
+
+<div class="skills">
+  <p><b>Languages:</b> C#, Python (Advanced), Java, Swift, SQL, JavaScript/TypeScript</p>
+  <p><b>Frameworks &amp; Libraries:</b> libGDX, TensorFlow/Keras, FastAPI, Django REST Framework, Pandas, NumPy, Matplotlib, NextJS</p>
+  <p><b>Data &amp; Infrastructure:</b> PostgreSQL, SQLite, Docker, Grafana, Oracle Cloud, Cloudflare, Hadoop/MapReduce</p>
+  <p><b>Tooling:</b> Git, GitHub Actions (CI/CD), YAML workflows, Claude Code</p>
+  <p><b>Business Intelligence:</b> Advanced Excel (Macros, VBA, Pivot Tables), Microsoft Suite, Google Suite</p>
+</div>
+
+<h2>Key Achievements</h2>
+
+<h3>Professional Excellence</h3>
+<ul>
+  <li><b>Graduate Hackathon Winner</b>, Checkout.com - One of a two-person team that won the graduate hackathon, co-designing and developing an AI-first game catalogue service that recommends games based on a search or the mood (&ldquo;vibe&rdquo;) the player is in.</li>
+  <li><b>Graduate Community Champion</b> - Part of the champion group that organises events for all graduates in the London office. Worked with three other graduates, the wider graduate group and the People team to formalise a budget and run a Christmas pub quiz.</li>
+</ul>
+
+<h3>Academic Excellence</h3>
+<ul>
+  <li><b>Best Mathematics Project Award</b>, Nottingham Trent University Department of Mathematics - Awarded for dissertation reverse-engineering Shazam&rsquo;s proprietary audio fingerprinting algorithm using advanced Fourier analysis</li>
+  <li><b>First Class Honours Graduate</b> - Achieved the highest classification in BSc Data Science with exceptional performance across machine learning, big data, and statistical analysis modules.</li>
+  <li><b>Student Union Course Representative</b> - Elected to represent Data Science and Computer Science (w/ Math) cohorts, advocating for curriculum improvements and student interests</li>
+</ul>
+</body>
+</html>
