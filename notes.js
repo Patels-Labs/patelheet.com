@@ -72,6 +72,12 @@ const TOOLS = {
   zen: ["Zen", "Browser", "A Firefox-based browser in the style of Arc.", "https://zen-browser.app"],
   arc: ["Arc", "Browser", "The Browser Company's browser.", "https://arc.net"],
   raycast: ["Raycast", "Launcher", "A launcher and productivity tool for macOS.", "https://www.raycast.com"],
+  walkthrough: ["Walkthrough", "Claude Code plugin", "My plugin that turns code, PRs or docs into an interactive HTML walkthrough you can leave notes on.", "https://github.com/heet-patel-cko/walkthrough"],
+  opus: ["Claude Opus", "Model", "One of Anthropic's larger Claude models.", "https://www.anthropic.com/claude"],
+  fable: ["Claude Fable", "Model", "One of Anthropic's larger Claude models.", "https://www.anthropic.com/claude"],
+  sonnet: ["Claude Sonnet", "Model", "Anthropic's mid-sized Claude model.", "https://www.anthropic.com/claude"],
+  claudedesktop: ["Claude desktop app", "App", "Claude for Mac and Windows. Its Code tab runs Claude Code.", "https://claude.ai/download"],
+  github: ["GitHub", "Code hosting", "Where the code, pull requests and reviews live.", "https://github.com"],
   checkout: ["Checkout.com", "Work", "Where I'm a Graduate Software Engineer.", "https://www.checkout.com"],
 };
 
@@ -343,3 +349,26 @@ const io = new IntersectionObserver((entries) => entries.forEach((en) => {
   if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
 }), { rootMargin: "0px 0px -8% 0px" });
 document.querySelectorAll(".rv").forEach((el) => io.observe(el));
+
+// ---------- diff order vs walkthrough order: the same files, reshuffled ----------
+// Diff order is alphabetical (how a PR shows it). Walkthrough order is the order the code runs (data-run).
+document.querySelectorAll("[data-order]").forEach((fig) => {
+  const list = fig.querySelector(".order-list");
+  const items = [...list.children];
+  const buttons = fig.querySelectorAll("[data-mode]");
+  const show = (mode) => {
+    const before = new Map(items.map((li) => [li, li.getBoundingClientRect()]));
+    const sorted = mode === "run" ? [...items].sort((a, b) => a.dataset.run - b.dataset.run) : items;
+    list.append(...sorted);                       // real DOM order, so screen readers get it too
+    fig.classList.toggle("run", mode === "run");
+    buttons.forEach((b) => b.setAttribute("aria-pressed", b.dataset.mode === mode));
+    if (reduceMotion) return;
+    sorted.forEach((li) => {                      // FLIP: start where it was, glide to where it is now
+      const a = before.get(li), b = li.getBoundingClientRect();
+      const dy = a.top - b.top;
+      if (dy) li.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }],
+                         { duration: 650, easing: "cubic-bezier(0.16, 1, 0.3, 1)" });
+    });
+  };
+  buttons.forEach((b) => b.addEventListener("click", () => show(b.dataset.mode)));
+});

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How I Review Code I Didn't Write · Heet Patel</title>
+  <meta name="description" content="How I use AI to write code at work, and the plugin I built so I can review it without reading 1,000-line diffs.">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0B0B0C" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FCFCFB" media="(prefers-color-scheme: light)">
+  <meta property="og:title" content="How I Review Code I Didn't Write">
+  <meta property="og:description" content="How I use AI to write code at work, and the plugin I built so I can review it without reading 1,000-line diffs.">
+  <meta property="og:image" content="https://patelheet.com/assets/notes/reviewing-code-i-didnt-write/walkthrough-overview.png">
+  <meta property="og:url" content="https://patelheet.com/lab-notes/reviewing-code-i-didnt-write/">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap">
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=sentient@300,301,400,401&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/notes.css">
+  <script>
+    document.documentElement.classList.add("js");
+    try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="bar" data-reveal>
+    <a class="id" href="/" aria-label="Heet Patel, home">
+      <svg class="mark" viewBox="128 -6 326 448" aria-hidden="true">
+        <path class="mark-shadow" transform="translate(12,12)" fill-rule="evenodd" d="M140,140 H250 A105,105 0 0 1 250,350 H210 V385 A35,35 0 0 1 140,385 Z M210,245 A40,40 0 1 0 290,245 A40,40 0 1 0 210,245 Z"/>
+        <path class="mark-p" fill-rule="evenodd" d="M140,140 H250 A105,105 0 0 1 250,350 H210 V385 A35,35 0 0 1 140,385 Z M210,245 A40,40 0 1 0 290,245 A40,40 0 1 0 210,245 Z"/>
+        <circle class="mark-ring" cx="390" cy="88" r="39"/>
+        <path class="mark-spark" d="M305,0 Q311,24 335,30 Q311,36 305,60 Q299,36 275,30 Q299,24 305,0 Z"/>
+        <circle class="mark-dot" cx="436" cy="22" r="10"/>
+      </svg>
+      <span>Heet Patel</span>
+    </a>
+    <div class="bar-right">
+      <span class="clock" title="My local time">London <time id="clock">--:--</time></span>
+      <button class="theme" id="theme" type="button" aria-label="Toggle light and dark theme">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 3 A7 7 0 0 1 10 17 Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <article class="post">
+      <a class="back" href="/#notes-h" aria-label="Back to home"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            <h1 class="rv">How I Review Code I Didn't Write</h1>
+      <p class="date rv"><time datetime="2026-11">November 2026</time></p>
+
+<p class="rv">AI is a big part of how development runs at <a class="tool" data-tool="checkout">Checkout.com</a>. So I need a process that does two things. A, it writes the code I need. B, it lets me review that code without reading a 1,000-line diff.</p>
+
+<p class="rv">To help with B, I built a <a class="tool" data-tool="claude">Claude</a> plugin called <a class="tool" data-tool="walkthrough">Walkthrough</a>. It's public, and most of this post is about how I use it.</p>
+
+<h2 class="rv">A Ticket, Start to Finish</h2>
+
+<p class="rv">I have <a class="tool" data-tool="claudecode">Claude Code</a> environments set up, which makes it easy to open a chat inside a specific service or repo with the context it needs already added. On my work machine that's always the <a class="tool" data-tool="claudedesktop">Claude desktop app</a>, in the Code tab.</p>
+
+<p class="rv">Honestly, most of the time it's as simple as this. I give Claude the ticket and tell it to plan with a bigger model (<a class="tool" data-tool="opus">Opus</a> or <a class="tool" data-tool="fable">Fable</a>), then spin up <a class="tool" data-tool="sonnet">Sonnet</a> models to do the coding. If I have extra context, like something from a call or a meeting about the ticket, I send that along with it. Then I let Claude do its thing.</p>
+
+<p class="rv">About 90% of the time it picks a very good approach. It follows the conventions that have been set in the codebase since probably before Claude was a thing, and it adds the steps that are needed.</p>
+
+<p class="rv">Once the code is written, I get it to run Walkthrough. That's my self-review, and I'll get to how it works in a second.</p>
+
+<p class="rv">When the self-review is done, I break the ticket into the commits it needs, and sometimes into separate PRs, ready for stacks (which I hate, by the way). It gets pushed to <a class="tool" data-tool="github">GitHub</a>, if GitHub isn't down that is. From there someone reviews it. If changes are needed, I ask Claude to make them and update the walkthrough, and that's about it. There are testing steps in there too that make sure the service works as expected, but I can't really talk about those.</p>
+
+<h2 class="rv">Why Not Just Read the Diff?</h2>
+
+<p class="rv">A diff, in my opinion, is just hard to read. It goes file by file and line by line. When a change spans multiple files, with functions calling each other all over the place, there's no easy way to follow the process.</p>
+
+<p class="rv">Say you're trying to follow how a command for a Discord bot goes from you calling it to it running and responding. There are probably several functions the command calls, sitting in separate files. In a diff view you're jumping between files by hand and trying to remember where you are. A walkthrough follows the whole execution for you, and explains it step by step.</p>
+
+<figure class="order rv" data-order>
+  <div class="order-bar">
+    <span class="order-label">A made-up Discord command, five files</span>
+    <div class="order-toggle" role="group" aria-label="File order">
+      <button type="button" data-mode="diff" aria-pressed="true">Diff order</button>
+      <button type="button" data-mode="run" aria-pressed="false">Walkthrough order</button>
+    </div>
+  </div>
+  <ol class="order-list">
+    <li data-run="3"><code>activity.py</code><span class="order-delta">+24 &minus;2</span><span class="order-why"><span>Counts how many messages the channel gets per minute.</span></span></li>
+    <li data-run="2"><code>checks.py</code><span class="order-delta">+9 &minus;0</span><span class="order-why"><span>Makes sure the person running it is allowed to.</span></span></li>
+    <li data-run="1"><code>commands/slowmode.py</code><span class="order-delta">+31 &minus;4</span><span class="order-why"><span>The command arrives here, and this is where everything else gets called from.</span></span></li>
+    <li data-run="4"><code>db.py</code><span class="order-delta">+12 &minus;1</span><span class="order-why"><span>Saves the new setting for the channel.</span></span></li>
+    <li data-run="5"><code>responses.py</code><span class="order-delta">+7 &minus;0</span><span class="order-why"><span>Builds the reply the user actually sees.</span></span></li>
+  </ol>
+  <figcaption>Same files, same change. A diff shows them alphabetically. A walkthrough shows them in the order they run.</figcaption>
+</figure>
+
+<h2 class="rv">What Walkthrough Actually Does</h2>
+
+<p class="rv">Walkthrough turns a big pile of context into a simple, interactive HTML page that I read in my browser. That context can be code, a stack of PRs, AI-generated changes, a design doc or a wiki page. Claude writes the walkthrough as Markdown that points at the real files and lines, and a script builds it into one self-contained page with the code highlighting and notes already built in.</p>
+
+<p class="rv">It picks one concrete example, like one request or one command, and follows it through every section. Each section highlights and pins the exact lines it's talking about, so the explanation points at the code instead of describing it. Every term gets defined once, with a hover definition everywhere else, and there's a reader level (beginner, familiar or expert) depending on how much I already know.</p>
+
+<p class="rv">The part I actually built it for is the notes. While I'm reading, I can select any sentence or click any code line and leave a note. There are three kinds:</p>
+
+<p class="rv"><strong>Explain better</strong> rewrites that part of the walkthrough the way I ask. <strong>Change it</strong> is a review comment on the code itself: Claude changes the code, then updates the walkthrough. <strong>Question</strong> gets an answer as a reply.</p>
+
+<p class="rv">When I'm done, I open the Notes panel and hit <strong>Copy for AI</strong>, paste it into Claude, and it applies the notes and rebuilds. Every note shows Claude's reply, resolved notes turn grey, and changed sections get an Updated badge. Then I read it again. That loop repeats until I'm happy.</p>
+
+<figure class="rv">
+  <div class="stack-cards" data-gallery>
+    <div class="card c1" data-zoom tabindex="0" role="button" aria-label="Open the walkthrough overview screenshot"><img src="/assets/notes/reviewing-code-i-didnt-write/walkthrough-overview.png" alt="A walkthrough page: contents on the left, a short summary and a flow diagram of the steps" width="1600" height="1000" loading="lazy"></div>
+    <div class="card c2" data-zoom tabindex="0" role="button" aria-label="Open the walkthrough code screenshot"><img src="/assets/notes/reviewing-code-i-didnt-write/walkthrough-code.png" alt="A walkthrough section with a code excerpt, highlighted lines and numbered pins the text refers to" width="1600" height="1000" loading="lazy"></div>
+  </div>
+  <figcaption>A real walkthrough, of the code behind the toggle above.</figcaption>
+</figure>
+
+<p class="rv">Those screenshots aren't from work. They're from a walkthrough of this site's own code: the diff-order toggle above, which Claude wrote for this post. You can <a class="u" href="/lab-notes/reviewing-code-i-didnt-write/walkthrough.html">open the full walkthrough</a> and poke around it yourself.</p>
+
+<h2 class="rv">What I Actually Catch</h2>
+
+<p class="rv">Claude has a habit of over-engineering sometimes. It'll overcomplicate things that don't need it, so I have to go back and ask it to simplify, or to use another method. There was one ticket where it didn't follow the Result pattern we use in our codebase, and that one took 5+ rounds of self-review before it was ready to go.</p>
+
+<p class="rv">On the opposite end, some of the names it chooses aren't descriptive at all. One word for a function that's doing a lot of things. It'll create a function called <code>check</code> that's actually validating keys, or doing complex regex checks. So a lot of my review notes are "rename this", or "make sure the function name actually describes what it's doing".</p>
+
+<p class="rv">How many rounds it takes depends on the ticket. An entirely new feature that's quite large can take anywhere between 1 and 5 rounds before it's ready for review, and it really varies. A small bug fix can usually go with no extra changes, or maybe one more round.</p>
+
+<p class="rv">Has a walkthrough ever saved me from something embarrassing? Not really. I'm a graduate, so I get a lot of support on the tickets I work on. Before I even start coding, I'm given potential approaches and things to look at, which helps make sure Claude and I take the right approach. And if I do take a wrong one, it's not embarrassing, because my team knows I'm new and they'll point me down another avenue. I'll update this when something embarrassing does happen.</p>
+
+<h2 class="rv">"AI Wrote It, So You Don't Understand It"</h2>
+
+<p class="rv">I think people who hate on AI in coding have confused what AI-assisted development actually means, and I think the term vibe coding has made it worse. People see "AI was used" and assume no review happened, and that it's slop someone one-prompted and published.</p>
+
+<p class="rv">I don't blame them. There are very real examples of someone one-prompting literal bullshit that probably breaks about 50 different security, privacy and data-handling laws, with terrible output to match. But that doesn't mean every AI-assisted project is like that. AI is a tool, and used properly it can produce truly great projects. It's just also been handed to people who have no clue what software engineering is, and that's how we end up with "Claude has just replaced software engineers" tweets and one-prompt projects.</p>
+
+<p class="rv">At Checkout.com we all use AI, and we've been vocal about it on our blogs and on LinkedIn. My reviewers know, and I've reviewed AI-written code myself. As long as the output was properly self-reviewed first, I don't see an issue with it.</p>
+
+<p class="rv">Full disclosure, then: this post was partly written by AI, so I could show the skill off. Before it went up, I went through it and changed it so it makes sense and sounds like me, not verbose AI slop. Same process as everything else.</p>
+
+<h2 class="rv">Work vs. Personal</h2>
+
+<p class="rv">I use a similar loop on my personal projects. Walkthrough is the finalised version of what I want everywhere, and I'm testing it in different places right now.</p>
+
+<p class="rv">I do trust AI a lot more on personal projects, though, mainly because they're less impactful. I don't handle anyone's money, and most of my projects don't involve any data handling on my side, so there's less to worry about. At worst, if the AI's code is broken, an app crashes for a moment or a bot doesn't respond in time.</p>
+
+<p class="rv">At work, I'm responsible for code that handles billions of dollars a year. That's why the AI's output gets properly vetted before it goes anywhere near production.</p>
+
+<h2 class="rv">Try It</h2>
+
+<p class="rv">Walkthrough is <a class="u" href="https://github.com/heet-patel-cko/walkthrough" target="_blank" rel="noopener">on GitHub</a>. In Claude Code:</p>
+
+<pre class="rv"><code>/plugin marketplace add heet-patel-cko/walkthrough
+/plugin install walkthrough@walkthrough</code></pre>
+
+<p class="rv">Then ask for <code>/walkthrough:create what you just built</code> after your next AI-written change, and actually read it.</p>
+
+    </article>
+  </main>
+
+  <footer class="foot" data-reveal>
+    <span>Released under Patel&rsquo;s Labs</span>
+    <span class="mono">&copy; <span id="year">2026</span></span>
+  </footer>
+
+  <script src="/script.js" defer></script>
+  <script src="/notes.js" defer></script>
+</body>
+</html>
