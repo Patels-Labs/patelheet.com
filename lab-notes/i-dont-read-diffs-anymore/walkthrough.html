@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How the diff-order toggle works</title>
+<style>
+:root {
+  --bg: #fbfaf7; --panel: #fff; --text: #1f2328; --muted: #5b636e; --accent: #2f6feb;
+  --code-bg: #f6f4ef; --border: #e2ded4; --hl: #fff3c4; --add: #e6f6ea; --del: #fdecec;
+  --why: #eef4ff; --why-b: #2f6feb; --watch: #fff5e0; --watch-b: #d48806;
+  --trace: #eaf7ee; --trace-b: #2da44e; --tldr: #f3effc; --tldr-b: #8250df; --note-b: #8a94a3;
+  --kw: #cf222e; --str: #0a3069; --com: #6e7781; --num: #0550ae;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a; --panel: #1d2024; --text: #e4e6e9; --muted: #9aa3ad; --accent: #6ea8ff;
+    --code-bg: #1b1e22; --border: #33373d; --hl: #3a3420; --add: #1d3324; --del: #3b2023;
+    --why: #172338; --watch: #33281a; --trace: #18301f; --tldr: #261f38;
+    --kw: #ff7b72; --str: #a5d6ff; --com: #8b949e; --num: #79c0ff;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--text); background: var(--bg); }
+.layout { display: grid; grid-template-columns: 240px minmax(0, 780px); gap: 48px; justify-content: center; padding: 32px 24px 120px; }
+body.wt-open .layout { margin-right: 380px; }
+@media (max-width: 1500px) { body.wt-open .layout { margin-right: 0; } }
+
+nav.toc { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; font-size: 14px; line-height: 1.45; padding-right: 10px; border-right: 1px solid var(--border); }
+.toc-title { font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; }
+nav.toc li { margin: 4px 0; }
+nav.toc ol ol { padding-left: 14px; margin: 4px 0 8px; }
+nav.toc a { color: var(--text); text-decoration: none; display: inline; }
+nav.toc a:hover { color: var(--accent); }
+nav.toc a.active { color: var(--accent); font-weight: 600; }
+.toc-badge { font-size: 11px; color: var(--muted); margin-left: 4px; }
+.toc-badge.upd { color: var(--tldr-b); font-weight: 700; }
+@media (max-width: 1080px) {
+  .layout { grid-template-columns: minmax(0, 780px); gap: 24px; }
+  nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; background: var(--panel); }
+}
+
+main { min-width: 0; }
+h1 { font-size: 34px; line-height: 1.2; margin: 0 0 6px; }
+.subtitle { color: var(--muted); margin: 0; font-size: 18px; }
+.docmeta { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+h2 { font-size: 26px; margin: 56px 0 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+h3 { font-size: 20px; margin: 40px 0 10px; }
+h2, h3 { scroll-margin-top: 16px; position: relative; }
+a { color: var(--accent); }
+code { font-family: var(--mono); }
+:not(pre) > code, p code, li code, td code { background: var(--code-bg); border: 1px solid var(--border); padding: 0 5px; border-radius: 4px; font-size: .86em; overflow-wrap: anywhere; }
+blockquote { margin: 16px 0; padding: 4px 16px; border-left: 4px solid var(--border); color: var(--muted); }
+[data-b] { position: relative; }
+
+.tablewrap { overflow-x: auto; margin: 12px 0 18px; }
+table { border-collapse: collapse; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); }
+li.task { list-style: none; margin-left: -22px; }
+.chk { margin-right: 6px; transform: translateY(1px); }
+
+/* callouts */
+aside.co { border-left: 4px solid var(--note-b); padding: 10px 16px; margin: 20px 0; border-radius: 0 8px 8px 0; background: var(--code-bg); }
+aside.co > p, aside.co li { margin: 6px 0; }
+aside.co .label { font-weight: 700; display: block; margin-bottom: 2px; }
+aside.why { background: var(--why); border-color: var(--why-b); }
+aside.watch { background: var(--watch); border-color: var(--watch-b); }
+aside.trace { background: var(--trace); border-color: var(--trace-b); }
+aside.tldr { background: var(--tldr); border-color: var(--tldr-b); font-size: 18px; }
+details { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin: 16px 0; background: var(--panel); }
+details > summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+details[open] > summary { margin-bottom: 6px; }
+
+/* glossary */
+.term { border-bottom: 1px dotted var(--muted); cursor: help; }
+.wt-tip { position: fixed; z-index: 95; max-width: min(340px, calc(100vw - 16px)); background: var(--text); color: var(--bg); font-size: 13.5px; line-height: 1.45; padding: 7px 10px; border-radius: 6px; font-weight: 400; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+dl.glossary dt { font-weight: 700; margin-top: 14px; }
+dl.glossary dd { margin: 2px 0 0; }
+
+/* flow diagram */
+.flow { display: flex; flex-direction: column; margin: 20px 0; }
+.flow .box { background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; }
+.flow .box b { display: block; }
+.flow .where { display: block; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.flow .what { display: block; font-size: 15px; margin-top: 2px; }
+.flow .arrow { text-align: center; color: var(--muted); font-size: 20px; line-height: 1; padding: 4px 0; }
+
+/* code */
+.code { border: 1px solid var(--border); border-radius: 8px; margin: 18px 0 14px; background: var(--code-bg); overflow: hidden; }
+.code-head { font-family: var(--mono); font-size: 12.5px; color: var(--muted); padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--panel); }
+.code-head a { color: var(--muted); }
+.code-body { overflow-x: auto; padding: 8px 0; font: 13.5px/1.55 var(--mono); }
+.cl { position: relative; display: flex; min-width: max-content; padding-right: 16px; }
+.cl .n { flex: none; width: 4.4em; padding-right: 12px; text-align: right; color: var(--muted); opacity: .6; user-select: none; cursor: pointer; }
+.cl .n:hover { opacity: 1; color: var(--accent); }
+.cl .t { white-space: pre; }
+.cl.hl { background: var(--hl); }
+.cl.hl .n { opacity: 1; }
+.cl.add { background: var(--add); }
+.cl.del { background: var(--del); }
+.cl.gap .t { color: var(--muted); }
+.code.snippet .n { display: none; }
+.code.snippet .cl { padding-left: 14px; }
+.pin { display: inline-flex; align-items: center; justify-content: center; min-width: 1.45em; height: 1.45em; border-radius: 1em; background: var(--accent); color: #fff; font: 700 11.5px/1 -apple-system, sans-serif; margin: 0 2px; vertical-align: 1px; padding: 0 3px; }
+.cl .pin { position: absolute; left: 2px; top: 50%; transform: translateY(-50%); margin: 0; }
+.tk-k { color: var(--kw); } .tk-s { color: var(--str); } .tk-c { color: var(--com); font-style: italic; } .tk-n { color: var(--num); }
+.code.missing { padding: 10px 14px; color: #c62828; }
+
+/* notes: in-page */
+.wt-hbtn { position: absolute; right: 0; top: 50%; transform: translateY(-50%); font: 13px/1 -apple-system, sans-serif; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; cursor: pointer; opacity: 0; }
+h2 .wt-hbtn { top: calc(50% + 5px); }
+h2:hover .wt-hbtn, h3:hover .wt-hbtn, .wt-hbtn:focus-visible { opacity: 1; }
+.wt-upd { font: 700 11px/1 -apple-system, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: var(--tldr-b); border-radius: 4px; padding: 3px 6px; margin-left: 10px; vertical-align: 4px; }
+.wt-mark { position: absolute; left: -34px; top: 2px; width: 22px; height: 22px; border-radius: 11px; background: var(--watch-b); color: #fff; font: 700 12px/22px -apple-system, sans-serif; text-align: center; cursor: pointer; border: 0; padding: 0; }
+.wt-mark.done { background: var(--note-b); }
+@media (max-width: 1080px) { .wt-mark { left: auto; right: -6px; top: -10px; } }
+#wt-changed { border: 1px solid var(--tldr-b); background: var(--tldr); border-radius: 8px; padding: 10px 14px; margin: 18px 0 0; font-size: 15px; }
+
+.wt-sel { position: absolute; z-index: 40; font: 600 13px/1 -apple-system, sans-serif; background: var(--text); color: var(--bg); border: 0; border-radius: 6px; padding: 7px 10px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.wt-pop { position: fixed; z-index: 80; width: 400px; max-width: calc(100vw - 24px); background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 12px; font-size: 14px; line-height: 1.45; }
+.wt-pop .q { max-height: 90px; overflow: auto; border-left: 3px solid var(--border); padding-left: 8px; color: var(--muted); margin: 0 0 8px; white-space: pre-wrap; font-size: 13px; }
+.wt-pop .loc { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.wt-pop textarea { width: 100%; min-height: 90px; font: inherit; font-size: 14.5px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); resize: vertical; }
+.wt-pop textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.wt-types { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.wt-types button { flex: 1; }
+.wt-types button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wt-help { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+.wt-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.wt-row .sp { flex: 1; color: var(--muted); font-size: 12px; }
+
+/* notes: panel */
+.wt-b { font: 13px/1.2 -apple-system, sans-serif; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.wt-b:hover { border-color: var(--accent); color: var(--accent); }
+.wt-b.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wt-b.primary:hover { filter: brightness(1.08); color: #fff; }
+.wt-b.sm { font-size: 12px; padding: 3px 7px; }
+.wt-tab { position: fixed; right: 0; bottom: 28px; z-index: 50; font: 600 13px/1 -apple-system, sans-serif; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-right: 0; border-radius: 8px 0 0 8px; padding: 11px 13px; cursor: pointer; box-shadow: 0 1px 6px rgba(0,0,0,.12); }
+body.wt-open .wt-tab { display: none; }
+.wt-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100vw; z-index: 60; background: var(--panel); border-left: 1px solid var(--border); display: none; flex-direction: column; font-size: 14px; line-height: 1.45; }
+body.wt-open .wt-panel { display: flex; }
+.wt-phead { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); font-weight: 700; }
+.wt-pbody { overflow-y: auto; padding: 12px 14px 40px; flex: 1; }
+.wt-tools { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.wt-muted { color: var(--muted); font-size: 12.5px; margin: 6px 0; }
+.wt-flash { background: var(--trace); border: 1px solid var(--trace-b); border-radius: 6px; padding: 6px 10px; margin: 6px 0; font-size: 13px; }
+.wt-warn { background: var(--watch); border: 1px solid var(--watch-b); border-radius: 6px; padding: 6px 10px; margin: 6px 0; font-size: 13px; }
+.wt-grp { margin: 16px 0 6px; padding-top: 8px; border-top: 1px solid var(--border); font-weight: 700; font-size: 13px; }
+.wt-grp a { text-decoration: none; }
+.wt-n { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 8px 0; background: var(--bg); }
+.wt-n.done { opacity: .7; }
+.wt-n .q { color: var(--muted); font-size: 12.5px; border-left: 3px solid var(--border); padding-left: 7px; margin: 4px 0; max-height: 60px; overflow: hidden; white-space: pre-wrap; }
+.wt-n .txt { white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0; }
+.wt-n .loc { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.wt-n .reply { margin-top: 6px; padding: 6px 8px; border-radius: 6px; background: var(--trace); font-size: 13px; white-space: pre-wrap; }
+.wt-n .reply.ask { background: var(--watch); }
+.wt-n .acts { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+.wt-n .acts .sp { flex: 1; color: var(--muted); font-size: 11.5px; }
+.wt-tag { display: inline-block; font: 700 10.5px/1 -apple-system, sans-serif; text-transform: uppercase; letter-spacing: .04em; border-radius: 4px; padding: 3px 5px; color: #fff; margin-right: 6px; vertical-align: 1px; }
+.wt-tag.clarify { background: var(--why-b); } .wt-tag.change { background: #cf222e; } .wt-tag.question { background: var(--tldr-b); } .wt-tag.resolved { background: var(--trace-b); }
+.wt-toast { position: fixed; left: 16px; bottom: 16px; z-index: 90; background: var(--text); color: var(--bg); border-radius: 8px; padding: 8px 12px; font-size: 14px; display: flex; gap: 10px; align-items: center; }
+.wt-toast .wt-b { background: transparent; color: var(--bg); border-color: var(--muted); }
+.wt-fallback { width: 100%; height: 120px; font: 12px var(--mono); margin-top: 6px; }
+
+@media print {
+  nav.toc, .wt-tab, .wt-panel, .wt-hbtn, .wt-mark, .wt-sel, #wt-changed { display: none !important; }
+  .layout { display: block; padding: 0; }
+  details { display: block; } details > * { display: block; }
+}
+
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <div class="toc-title">Contents</div>
+  <ol><li><a href="#intro" data-toc="intro">What you&#x27;re about to read</a></li><li><a href="#big-picture" data-toc="big-picture">The big picture</a></li><li><a href="#markup" data-toc="markup">The markup</a></li><li><a href="#show" data-toc="show">Switching order</a></li><li><a href="#flip" data-toc="flip">The glide</a></li><li><a href="#css" data-toc="css">What the CSS changes</a></li><li><a href="#decisions" data-toc="decisions">Decisions the AI made</a><ol><li><a href="#decision-dom" data-toc="decision-dom">Reordering the page, not just the picture</a></li><li><a href="#decision-waapi" data-toc="decision-waapi">Web Animations instead of a CSS transition</a></li><li><a href="#decision-counter" data-toc="decision-counter">No step numbers in the HTML</a></li></ol></li><li><a href="#review" data-toc="review">What to check when reviewing</a></li><li><a href="#glossary" data-toc="glossary">Words used here</a></li><li><a href="#next" data-toc="next">What happens next</a></li></ol>
+</nav>
+<main id="wt-main">
+<h1>How the diff-order toggle works</h1>
+<p class="subtitle">The demo in &quot;I Don&#x27;t Read Diffs Anymore&quot;, written by Claude for this post</p>
+<p class="docmeta">Version 1 · familiar</p>
+<div id="wt-changed" hidden></div>
+<aside class="co tldr" data-sec="top" data-b="top.1"><span class="label">In short</span><p data-sec="top" data-b="top.2">The toggle shows five made-up files in two orders: alphabetical, the way a diff lists them, and the order the code runs, the way a walkthrough reads them. Clicking a button really moves the list items in the page, then animates each one from where it was to where it is now. All the styling for the second order hangs off one class, <code>run</code>, on the figure.</p></aside><h2 id="intro" data-sec="intro">What you&#x27;re about to read</h2><p data-sec="intro" data-b="intro.1">This covers the demo in the middle of the post: the markup, the 20 or so lines of JavaScript that drive it, and the CSS that changes when you switch. It&#x27;s for someone who knows HTML, CSS and JavaScript but hasn&#x27;t seen this site&#x27;s code.</p><p data-sec="intro" data-b="intro.2">We&#x27;ll follow one click the whole way through: <strong>a reader clicks &quot;Walkthrough order&quot;</strong>, and <code>commands/slowmode.py</code> moves from third place to first.</p><h2 id="big-picture" data-sec="big-picture">The big picture</h2><div class="flow" data-sec="big-picture" data-b="big-picture.1" role="img" aria-label="One click on &quot;Walkthrough order&quot;"><div class="box"><b>Click</b><span class="where"><code>data-mode=&quot;run&quot;</code></span><span class="what">The button says which order it wants</span></div><div class="arrow">↓</div><div class="box"><b>Measure</b><span class="where"><code>getBoundingClientRect()</code></span><span class="what">Remember where every file sits right now</span></div><div class="arrow">↓</div><div class="box"><b>Reorder</b><span class="where"><code>list.append(...sorted)</code></span><span class="what">Move the list items into run order in the page</span></div><div class="arrow">↓</div><div class="box"><b>Restyle</b><span class="where"><code>.order.run</code></span><span class="what">Step numbers appear, line counts fade, explanations open</span></div><div class="arrow">↓</div><div class="box"><b>Animate</b><span class="where"><code>li.animate()</code></span><span class="what">Each item glides from its old spot to its new one</span></div></div><p data-sec="big-picture" data-b="big-picture.2">Two ideas matter before the code:</p><ul data-sec="big-picture" data-b="big-picture.3"><li>The reorder is real. The items move in the page, not just on screen, so the order a screen reader announces matches the order you see.</li><li>The animation is a <span class="term" tabindex="0" data-def="First, Last, Invert, Play. Measure where something is, move it, then animate it from the old spot to the new one.">FLIP</span>. The browser jumps the items to their new places, then each one is drawn back where it was and slides home.</li></ul><h2 id="markup" data-sec="markup">The markup</h2><div data-sec="markup" data-b="markup.1"><div class="code ref" data-lang="html" data-file="lab-notes/i-dont-read-diffs-anymore/index.html"><div class="code-head"><a href="https://github.com/Patels-Labs/patelheet.com/blob/9a0b2a74a4bf715b052cc2768dcc644f404aaddf/lab-notes/i-dont-read-diffs-anymore/index.html#L82-L97" target="_blank" rel="noopener">lab-notes/i-dont-read-diffs-anymore/index.html</a></div><div class="code-body"><div class="cl" data-n="82"><span class="n">82</span><span class="t">&lt;figure class=&quot;order rv&quot; data-order&gt;</span><span class="pin">1</span></div><div class="cl" data-n="83"><span class="n">83</span><span class="t">  &lt;div class=&quot;order-bar&quot;&gt;</span></div><div class="cl" data-n="84"><span class="n">84</span><span class="t">    &lt;span class=&quot;order-label&quot;&gt;A made-up Discord command, five files&lt;/span&gt;</span></div><div class="cl" data-n="85"><span class="n">85</span><span class="t">    &lt;div class=&quot;order-toggle&quot; role=&quot;group&quot; aria-label=&quot;File order&quot;&gt;</span></div><div class="cl hl" data-n="86"><span class="n">86</span><span class="t">      &lt;button type=&quot;button&quot; data-mode=&quot;diff&quot; aria-pressed=&quot;true&quot;&gt;Diff order&lt;/button&gt;</span></div><div class="cl hl" data-n="87"><span class="n">87</span><span class="t">      &lt;button type=&quot;button&quot; data-mode=&quot;run&quot; aria-pressed=&quot;false&quot;&gt;Walkthrough order&lt;/button&gt;</span><span class="pin">2</span></div><div class="cl" data-n="88"><span class="n">88</span><span class="t">    &lt;/div&gt;</span></div><div class="cl" data-n="89"><span class="n">89</span><span class="t">  &lt;/div&gt;</span></div><div class="cl" data-n="90"><span class="n">90</span><span class="t">  &lt;ol class=&quot;order-list&quot;&gt;</span></div><div class="cl hl" data-n="91"><span class="n">91</span><span class="t">    &lt;li data-run=&quot;3&quot;&gt;&lt;code&gt;activity.py&lt;/code&gt;&lt;span class=&quot;order-delta&quot;&gt;+24 &amp;minus;2&lt;/span&gt;&lt;span class=&quot;order-why&quot;&gt;&lt;span&gt;Counts how many messages the channel gets per minute.&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;</span></div><div class="cl hl" data-n="92"><span class="n">92</span><span class="t">    &lt;li data-run=&quot;2&quot;&gt;&lt;code&gt;checks.py&lt;/code&gt;&lt;span class=&quot;order-delta&quot;&gt;+9 &amp;minus;0&lt;/span&gt;&lt;span class=&quot;order-why&quot;&gt;&lt;span&gt;Makes sure the person running it is allowed to.&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;</span></div><div class="cl hl" data-n="93"><span class="n">93</span><span class="t">    &lt;li data-run=&quot;1&quot;&gt;&lt;code&gt;commands/slowmode.py&lt;/code&gt;&lt;span class=&quot;order-delta&quot;&gt;+31 &amp;minus;4&lt;/span&gt;&lt;span class=&quot;order-why&quot;&gt;&lt;span&gt;The command arrives here, and this is where everything else gets called from.&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;</span><span class="pin">3</span></div><div class="cl hl" data-n="94"><span class="n">94</span><span class="t">    &lt;li data-run=&quot;4&quot;&gt;&lt;code&gt;db.py&lt;/code&gt;&lt;span class=&quot;order-delta&quot;&gt;+12 &amp;minus;1&lt;/span&gt;&lt;span class=&quot;order-why&quot;&gt;&lt;span&gt;Saves the new setting for the channel.&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;</span></div><div class="cl hl" data-n="95"><span class="n">95</span><span class="t">    &lt;li data-run=&quot;5&quot;&gt;&lt;code&gt;responses.py&lt;/code&gt;&lt;span class=&quot;order-delta&quot;&gt;+7 &amp;minus;0&lt;/span&gt;&lt;span class=&quot;order-why&quot;&gt;&lt;span&gt;Builds the reply the user actually sees.&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;</span></div><div class="cl" data-n="96"><span class="n">96</span><span class="t">  &lt;/ol&gt;</span></div><div class="cl" data-n="97"><span class="n">97</span><span class="t">  &lt;figcaption&gt;Same files, same change. A diff shows them alphabetically. A walkthrough shows them in the order they run.&lt;/figcaption&gt;</span></div></div></div></div><p data-sec="markup" data-b="markup.2"><span class="pin">1</span> <code>data-order</code> is what the script looks for, so the same demo could be dropped into any post. <span class="pin">2</span> Each button carries the order it asks for in <code>data-mode</code>, and <code>aria-pressed</code> says which one is active. <span class="pin">3</span> Every file has a <code>data-run</code> number: its position in the order the code runs. In the page, the files are written alphabetically, which is the diff order.</p><aside class="co trace" data-sec="markup" data-b="markup.3"><span class="label">Following the click</span><p data-sec="markup" data-b="markup.4">Before the click, <code>commands/slowmode.py</code> is the third item, and its <code>data-run</code> is <code>1</code>.</p></aside><aside class="co watch" data-sec="markup" data-b="markup.5"><span class="label">The example is made up</span><p data-sec="markup" data-b="markup.6">The five files and their line counts are invented to make the point. They aren&#x27;t from Serenity or any other real project.</p></aside><h2 id="show" data-sec="show">Switching order</h2><div data-sec="show" data-b="show.1"><div class="code ref" data-lang="js" data-file="notes.js"><div class="code-head"><a href="https://github.com/Patels-Labs/patelheet.com/blob/9a0b2a74a4bf715b052cc2768dcc644f404aaddf/notes.js#L355-L374" target="_blank" rel="noopener">notes.js</a></div><div class="code-body"><div class="cl" data-n="355"><span class="n">355</span><span class="t">document.querySelectorAll(&quot;[data-order]&quot;).forEach((fig) =&gt; {</span></div><div class="cl" data-n="356"><span class="n">356</span><span class="t">  const list = fig.querySelector(&quot;.order-list&quot;);</span></div><div class="cl" data-n="357"><span class="n">357</span><span class="t">  const items = [...list.children];</span></div><div class="cl" data-n="358"><span class="n">358</span><span class="t">  const buttons = fig.querySelectorAll(&quot;[data-mode]&quot;);</span></div><div class="cl hl" data-n="359"><span class="n">359</span><span class="t">  const show = (mode) =&gt; {</span></div><div class="cl hl" data-n="360"><span class="n">360</span><span class="t">    const before = new Map(items.map((li) =&gt; [li, li.getBoundingClientRect()]));</span><span class="pin">1</span></div><div class="cl hl" data-n="361"><span class="n">361</span><span class="t">    const sorted = mode === &quot;run&quot; ? [...items].sort((a, b) =&gt; a.dataset.run - b.dataset.run) : items;</span><span class="pin">2</span></div><div class="cl hl" data-n="362"><span class="n">362</span><span class="t">    list.append(...sorted);                       // real DOM order, so screen readers get it too</span><span class="pin">3</span></div><div class="cl hl" data-n="363"><span class="n">363</span><span class="t">    fig.classList.toggle(&quot;run&quot;, mode === &quot;run&quot;);</span><span class="pin">4</span></div><div class="cl hl" data-n="364"><span class="n">364</span><span class="t">    buttons.forEach((b) =&gt; b.setAttribute(&quot;aria-pressed&quot;, b.dataset.mode === mode));</span><span class="pin">5</span></div><div class="cl" data-n="365"><span class="n">365</span><span class="t">    if (reduceMotion) return;</span></div><div class="cl" data-n="366"><span class="n">366</span><span class="t">    sorted.forEach((li) =&gt; {                      // FLIP: start where it was, glide to where it is now</span></div><div class="cl" data-n="367"><span class="n">367</span><span class="t">      const a = before.get(li), b = li.getBoundingClientRect();</span></div><div class="cl" data-n="368"><span class="n">368</span><span class="t">      const dy = a.top - b.top;</span></div><div class="cl" data-n="369"><span class="n">369</span><span class="t">      if (dy) li.animate([{ transform: `translateY(${dy}px)` }, { transform: &quot;none&quot; }],</span></div><div class="cl" data-n="370"><span class="n">370</span><span class="t">                         { duration: 650, easing: &quot;cubic-bezier(0.16, 1, 0.3, 1)&quot; });</span></div><div class="cl" data-n="371"><span class="n">371</span><span class="t">    });</span></div><div class="cl" data-n="372"><span class="n">372</span><span class="t">  };</span></div><div class="cl" data-n="373"><span class="n">373</span><span class="t">  buttons.forEach((b) =&gt; b.addEventListener(&quot;click&quot;, () =&gt; show(b.dataset.mode)));</span><span class="pin">6</span></div><div class="cl" data-n="374"><span class="n">374</span><span class="t">});</span></div></div></div></div><p data-sec="show" data-b="show.2"><span class="pin">6</span> wires both buttons to <code>show()</code>, passing the button&#x27;s <code>data-mode</code>. Inside it, <span class="pin">1</span> records where every item is on screen before anything moves. <span class="pin">2</span> picks the new order: sorted by <code>data-run</code> for the walkthrough order, or the original alphabetical list. <span class="pin">3</span> moves the items in the page; <code>append</code> moves an element that&#x27;s already in the list instead of copying it. <span class="pin">4</span> adds or removes the <code>run</code> class that the CSS keys off, and <span class="pin">5</span> updates which button shows as pressed.</p><aside class="co why" data-sec="show" data-b="show.3"><span class="label">Why keep the original <code>items</code> array?</span><p data-sec="show" data-b="show.4"><code>items</code> is captured once, in alphabetical order, and never sorted in place (the sort works on a copy, <code>[...items]</code>). So switching back to diff order is just appending <code>items</code> again. There&#x27;s no need to store the original order anywhere else.</p></aside><aside class="co trace" data-sec="show" data-b="show.5"><span class="label">Following the click</span><p data-sec="show" data-b="show.6"><code>sorted</code> comes back as <code>slowmode.py</code>, <code>checks.py</code>, <code>activity.py</code>, <code>db.py</code>, <code>responses.py</code>. <code>append</code> moves <code>slowmode.py</code> to the top, and the figure gets the <code>run</code> class.</p></aside><h2 id="flip" data-sec="flip">The glide</h2><div data-sec="flip" data-b="flip.1"><div class="code ref" data-lang="js" data-file="notes.js"><div class="code-head"><a href="https://github.com/Patels-Labs/patelheet.com/blob/9a0b2a74a4bf715b052cc2768dcc644f404aaddf/notes.js#L365-L371" target="_blank" rel="noopener">notes.js</a></div><div class="code-body"><div class="cl" data-n="365"><span class="n">365</span><span class="t">    if (reduceMotion) return;</span><span class="pin">1</span></div><div class="cl" data-n="366"><span class="n">366</span><span class="t">    sorted.forEach((li) =&gt; {                      // FLIP: start where it was, glide to where it is now</span></div><div class="cl" data-n="367"><span class="n">367</span><span class="t">      const a = before.get(li), b = li.getBoundingClientRect();</span><span class="pin">2</span></div><div class="cl" data-n="368"><span class="n">368</span><span class="t">      const dy = a.top - b.top;</span><span class="pin">3</span></div><div class="cl" data-n="369"><span class="n">369</span><span class="t">      if (dy) li.animate([{ transform: `translateY(${dy}px)` }, { transform: &quot;none&quot; }],</span><span class="pin">4</span></div><div class="cl" data-n="370"><span class="n">370</span><span class="t">                         { duration: 650, easing: &quot;cubic-bezier(0.16, 1, 0.3, 1)&quot; });</span></div><div class="cl" data-n="371"><span class="n">371</span><span class="t">    });</span></div></div></div></div><p data-sec="flip" data-b="flip.2"><span class="pin">1</span> skips the animation entirely for people who&#x27;ve asked their system for less motion. The items still reorder, they just don&#x27;t slide. For everyone else, <span class="pin">2</span> measures where each item ended up, and <span class="pin">3</span> works out how far it moved. <span class="pin">4</span> starts it back at its old position and animates it to <code>none</code>, which is its new position.</p><aside class="co why" data-sec="flip" data-b="flip.3"><span class="label">Why animate <code>transform</code> instead of <code>top</code>?</span><p data-sec="flip" data-b="flip.4">Animating <code>transform</code> doesn&#x27;t make the browser recalculate the layout on every frame, so it stays smooth even while five items move at once.</p></aside><aside class="co trace" data-sec="flip" data-b="flip.5"><span class="label">Following the click</span><p data-sec="flip" data-b="flip.6"><code>slowmode.py</code> moved up two rows, so <code>dy</code> is positive: about two rows. It starts that far below than its new home and slides up into first place over 650ms.</p></aside><details data-sec="flip" data-b="flip.7"><summary>Where <code>reduceMotion</code> comes from</summary><p data-sec="flip" data-b="flip.8">It&#x27;s defined once near the top of the file and shared with the zoom and tilt effects.</p><div data-sec="flip" data-b="flip.9"><div class="code ref" data-lang="js" data-file="notes.js"><div class="code-head"><a href="https://github.com/Patels-Labs/patelheet.com/blob/9a0b2a74a4bf715b052cc2768dcc644f404aaddf/notes.js#L84-L84" target="_blank" rel="noopener">notes.js</a></div><div class="code-body"><div class="cl" data-n="84"><span class="n">84</span><span class="t">const reduceMotion = matchMedia(&quot;(prefers-reduced-motion: reduce)&quot;).matches;</span></div></div></div></div></details><h2 id="css" data-sec="css">What the CSS changes</h2><div data-sec="css" data-b="css.1"><div class="code ref" data-lang="css" data-file="notes.css"><div class="code-head"><a href="https://github.com/Patels-Labs/patelheet.com/blob/9a0b2a74a4bf715b052cc2768dcc644f404aaddf/notes.css#L201-L217" target="_blank" rel="noopener">notes.css</a></div><div class="code-body"><div class="cl" data-n="201"><span class="n">201</span><span class="t">.order-list li::before {   /* &quot;M&quot; (modified) like git status in diff order, the step number in walkthrough order */</span></div><div class="cl" data-n="202"><span class="n">202</span><span class="t">  counter-increment: step; content: &quot;M&quot;;</span><span class="pin">1</span></div><div class="cl" data-n="203"><span class="n">203</span><span class="t">  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;</span></div><div class="cl" data-n="204"><span class="n">204</span><span class="t">  font: 500 11px/1 var(--mono); color: var(--ink-3); background: transparent;</span></div><div class="cl" data-n="205"><span class="n">205</span><span class="t">  transition: background 0.4s var(--ease), color 0.4s var(--ease);</span></div><div class="cl" data-n="206"><span class="n">206</span><span class="t">}</span></div><div class="cl hl" data-n="207"><span class="n">207</span><span class="t">.order.run li::before { content: counter(step); color: var(--bg); background: var(--accent); }</span><span class="pin">2</span></div><div class="cl" data-n="208"><span class="n">208</span><span class="t">.post .order-list code { font: 400 13px/1.3 var(--mono); color: var(--ink); padding: 0; background: none; box-shadow: none; }</span></div><div class="cl" data-n="209"><span class="n">209</span><span class="t">.order-delta { font: 400 12px/1 var(--mono); color: var(--ink-3); transition: opacity 0.3s; }</span></div><div class="cl hl" data-n="210"><span class="n">210</span><span class="t">.order.run .order-delta { opacity: 0; }</span><span class="pin">3</span></div><div class="cl" data-n="211"><span class="n">211</span><span class="t">.order-why {</span></div><div class="cl" data-n="212"><span class="n">212</span><span class="t">  grid-column: 2 / -1; display: grid; grid-template-rows: 0fr; opacity: 0;</span><span class="pin">4</span></div><div class="cl" data-n="213"><span class="n">213</span><span class="t">  font-size: 13.5px; line-height: 1.45; color: var(--ink-2);</span></div><div class="cl" data-n="214"><span class="n">214</span><span class="t">  transition: grid-template-rows 0.45s var(--ease), opacity 0.3s, margin 0.45s var(--ease);</span></div><div class="cl" data-n="215"><span class="n">215</span><span class="t">}</span></div><div class="cl" data-n="216"><span class="n">216</span><span class="t">.order-why &gt; span { overflow: hidden; }</span></div><div class="cl hl" data-n="217"><span class="n">217</span><span class="t">.order.run .order-why { grid-template-rows: 1fr; opacity: 1; margin-top: 4px; }</span><span class="pin">5</span></div></div></div></div><p data-sec="css" data-b="css.2"><span class="pin">1</span> is a <span class="term" tabindex="0" data-def="A number the browser keeps while drawing the page, which goes up by one for each element that asks it to.">CSS counter</span> that numbers each item in the order it currently sits in the page, which is why the numbers come out right after the reorder. In diff order the circle shows a grey <code>M</code>, like <code>git status</code> does for a modified file. <span class="pin">2</span> swaps that for the step number and fills the circle in, only in run order. <span class="pin">3</span> fades out the line counts, since those belong to the diff view. The explanation under each file uses the <span class="term" tabindex="0" data-def="Animating a grid row from 0fr to 1fr, which lets something open to its natural height smoothly.">grid rows trick</span>: <span class="pin">4</span> starts it at <code>0fr</code> (no height), and <span class="pin">5</span> opens it to <code>1fr</code>.</p><aside class="co trace" data-sec="css" data-b="css.3"><span class="label">Following the click</span><p data-sec="css" data-b="css.4">With <code>run</code> on the figure, <code>slowmode.py</code> gets the step number 1, its <code>+31 −4</code> fades out, and &quot;The command arrives here…&quot; opens underneath it.</p></aside><h2 id="decisions" data-sec="decisions">Decisions the AI made</h2><p data-sec="decisions" data-b="decisions.1">These are choices in the code that the post didn&#x27;t ask for.</p><h3 id="decision-dom" data-sec="decision-dom">Reordering the page, not just the picture</h3><aside class="co why" data-sec="decision-dom" data-b="decision-dom.1"><span class="label">Why</span><p data-sec="decision-dom" data-b="decision-dom.2">Moving the elements in the page, instead of only moving them visually with CSS, means keyboard and screen reader users get the same order as everyone else.</p></aside><h3 id="decision-waapi" data-sec="decision-waapi">Web Animations instead of a CSS transition</h3><aside class="co why" data-sec="decision-waapi" data-b="decision-waapi.1"><span class="label">Why</span><p data-sec="decision-waapi" data-b="decision-waapi.2">The start position of each item is only known at the moment of the click, so it&#x27;s set from JavaScript with <code>animate()</code>. The site already uses the same approach for its image zoom.</p></aside><h3 id="decision-counter" data-sec="decision-counter">No step numbers in the HTML</h3><aside class="co why" data-sec="decision-counter" data-b="decision-counter.1"><span class="label">Why</span><p data-sec="decision-counter" data-b="decision-counter.2">The numbers come from a CSS counter instead of being written into each item, so they can never disagree with the order on screen.</p></aside><h2 id="review" data-sec="review">What to check when reviewing</h2><ul data-sec="review" data-b="review.1"><li class="task"><input type="checkbox" class="chk" data-chk="review.1"> <code>data-run</code> numbers in the markup run 1 to 5 with no gaps or repeats</li><li class="task"><input type="checkbox" class="chk" data-chk="review.2"> Clicking the already-pressed button does nothing odd (it re-appends in the same order and animates nothing)</li><li class="task"><input type="checkbox" class="chk" data-chk="review.3"> With reduced motion turned on, the list still reorders and the explanations still show</li><li class="task"><input type="checkbox" class="chk" data-chk="review.4"> Diff order shows <code>M</code> markers, not step numbers</li><li class="task"><input type="checkbox" class="chk" data-chk="review.5"> The toggle fits on a phone without the buttons wrapping awkwardly</li></ul><h2 id="glossary" data-sec="glossary">Words used here</h2><dl class="glossary" data-sec="glossary" data-b="glossary.1"><dt id="term-flip">FLIP</dt><dd>First, Last, Invert, Play. Measure where something is, move it, then animate it from the old spot to the new one.</dd><dt id="term-css-counter">CSS counter</dt><dd>A number the browser keeps while drawing the page, which goes up by one for each element that asks it to.</dd><dt id="term-grid-rows-trick">Grid rows trick</dt><dd>Animating a grid row from 0fr to 1fr, which lets something open to its natural height smoothly.</dd></dl><h2 id="next" data-sec="next">What happens next</h2><p data-sec="next" data-b="next.1">Nothing is planned. If a future post needs the same comparison, the figure can be reused with different files and a different <code>data-run</code> order.</p>
+</main>
+</div>
+<script type="application/json" id="wt-data">{"id": "reviewing-code-order-toggle", "title": "How the diff-order toggle works", "version": "1", "source": "walkthrough.md", "sections": [{"id": "intro", "title": "What you're about to read", "hash": "bd494bed6a"}, {"id": "big-picture", "title": "The big picture", "hash": "a085839729"}, {"id": "markup", "title": "The markup", "hash": "e16c0144f7"}, {"id": "show", "title": "Switching order", "hash": "64193a90fb"}, {"id": "flip", "title": "The glide", "hash": "202af2a0e8"}, {"id": "css", "title": "What the CSS changes", "hash": "f17748ddb1"}, {"id": "decisions", "title": "Decisions the AI made", "hash": "5af3eb2eeb"}, {"id": "decision-dom", "title": "Reordering the page, not just the picture", "hash": "220a9ace79"}, {"id": "decision-waapi", "title": "Web Animations instead of a CSS transition", "hash": "1960b0db3b"}, {"id": "decision-counter", "title": "No step numbers in the HTML", "hash": "09d3b64ebb"}, {"id": "review", "title": "What to check when reviewing", "hash": "1fc3ef34ef"}, {"id": "glossary", "title": "Words used here", "hash": "20aa97f729"}, {"id": "next", "title": "What happens next", "hash": "b6b710ab7d"}], "replies": {}}</script>
+<script>
+/* Walkthrough runtime: syntax highlighting, personal notes, "updated" badges.
+   Notes live only in this browser's localStorage, keyed by the walkthrough id.
+   They never go into the HTML file, so sharing the file shares no notes. */
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("wt-data").textContent);
+  var main = document.getElementById("wt-main");
+  var K = "wt:" + D.id + ":";
+  var TYPES = {
+    clarify: { label: "Explain better", help: "The walkthrough is unclear here. Say how you want it explained (simpler, an analogy, more depth, an example...)." },
+    change: { label: "Change it", help: "Something in the work itself is wrong or should be done differently, like a review comment." },
+    question: { label: "Question", help: "Just ask. The answer comes back as a reply on this note." }
+  };
+
+  // ---------------------------------------------------------------- storage
+  var ls = null;
+  try { ls = window.localStorage; ls.setItem(K + "probe", "1"); ls.removeItem(K + "probe"); } catch (e) { ls = null; }
+  var mem = {};
+  function get(k, d) { try { var v = ls ? ls.getItem(K + k) : mem[k]; return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function put(k, v) { var s = JSON.stringify(v); try { if (ls) { ls.setItem(K + k, s); } else { mem[k] = s; } return true; } catch (e) { saveFailed = true; return false; } }
+  var saveFailed = !ls;
+  var notes = get("notes", []);
+  function save() { put("notes", notes); renderAll(); }
+  window.addEventListener("storage", function (ev) { if (ev.key === K + "notes") { notes = get("notes", []); renderAll(); } });
+
+  // ---------------------------------------------------------------- helpers
+  function el(tag, attrs, kids) {
+    var e = document.createElement(tag);
+    for (var k in attrs || {}) {
+      if (k === "text") { e.textContent = attrs[k]; }
+      else if (k === "class") { e.className = attrs[k]; }
+      else if (k.slice(0, 2) === "on") { e.addEventListener(k.slice(2), attrs[k]); }
+      else if (attrs[k] !== null && attrs[k] !== undefined) { e.setAttribute(k, attrs[k]); }
+    }
+    (kids || []).forEach(function (c) { if (c) { e.appendChild(typeof c === "string" ? document.createTextNode(c) : c); } });
+    return e;
+  }
+  function btn(label, cls, fn, extra) { var a = { type: "button", "class": "wt-b " + (cls || ""), text: label, onclick: fn }; for (var k in extra || {}) { a[k] = extra[k]; } return el("button", a); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function when(iso) { var d = new Date(iso); return isNaN(d) ? "" : d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function newId() { return "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  var secTitle = {}, secOrder = {};
+  D.sections.forEach(function (s, i) { secTitle[s.id] = s.title; secOrder[s.id] = i; });
+  function reply(n) { return D.replies[n.id] || null; }
+  function isDone(n) { var r = reply(n); return !!(r && r.status === "resolved" && !n.reopened); }
+
+  // ---------------------------------------------------------------- syntax highlighting
+  var KW = "abstract as async await base bool break case catch class const continue def default defer delete do elif else enum export extends false final finally fn for foreach from func function get go if impl implements import in interface internal is lambda let match module namespace new nil none not null object of or and override package private protected pub public readonly record return sealed select self set static string struct super switch then this throw throws trait true try type typeof using val var void when where while with yield int long var".split(" ");
+  var KWS = {}; KW.concat(["True", "False", "None", "String", "Task"]).forEach(function (w) { KWS[w] = 1; });
+  function hashComments(lang) { return /^(py|sh|yaml|rb|hcl|toml|text)$/.test(lang); }
+  function highlight(code) {
+    var lang = code.getAttribute("data-lang") || "text";
+    if (lang === "text" || lang === "diff" || lang === "md") { return; }
+    var inBlock = false;
+    var tok = hashComments(lang)
+      ? /(#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\b\d[\d_.]*\b)|([A-Za-z_]\w*)/g
+      : /(\/\/.*$|\/\*.*?(?:\*\/|$)|--\s.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`[^`]*`)|(\b\d[\d_.]*\b)|([A-Za-z_]\w*)/g;
+    if (lang === "json") { tok = /()("(?:[^"\\]|\\.)*")|(-?\b\d[\d.eE+-]*\b)|(\btrue\b|\bfalse\b|\bnull\b)/g; }
+    if (lang === "sql") { tok = /(--.*$)|('(?:[^']|'')*')|(\b\d+\b)|([A-Za-z_]\w*)/g; }
+    code.querySelectorAll(".cl:not(.gap) .t").forEach(function (t) {
+      var src = t.textContent, out = "", last = 0, m, start = 0;
+      function e(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+      if (inBlock) {
+        var endAt = src.indexOf("*/");
+        if (endAt < 0) { t.innerHTML = '<span class="tk-c">' + e(src) + "</span>"; return; }
+        out = '<span class="tk-c">' + e(src.slice(0, endAt + 2)) + "</span>"; start = last = endAt + 2; inBlock = false;
+      }
+      tok.lastIndex = start;
+      while ((m = tok.exec(src)) !== null) {
+        if (m[0] === "") { tok.lastIndex++; continue; }
+        var cls = m[1] ? "c" : m[2] ? "s" : m[3] ? "n" : (lang === "json" || KWS.hasOwnProperty(m[4])) ? "k" : "";
+        if (lang === "sql" && m[4]) { cls = /^(select|from|where|and|or|join|left|right|inner|on|group|by|order|insert|into|values|update|set|delete|create|table|as|not|null|is|in|limit)$/i.test(m[4]) ? "k" : ""; }
+        out += e(src.slice(last, m.index));
+        out += cls ? '<span class="tk-' + cls + '">' + e(m[0]) + "</span>" : e(m[0]);
+        last = m.index + m[0].length;
+        if (m[1] && m[0].indexOf("/*") === 0 && m[0].indexOf("*/") < 0) { inBlock = true; }
+      }
+      out += e(src.slice(last));
+      t.innerHTML = out;
+    });
+  }
+  document.querySelectorAll(".code").forEach(highlight);
+
+  // ---------------------------------------------------------------- glossary tooltips
+  // One fixed-position tip on <body>, so tables or code blocks that scroll sideways can't clip it.
+  var tip = el("div", { "class": "wt-tip", role: "tooltip", id: "wt-tip", hidden: "" });
+  document.body.appendChild(tip);
+  function showTip(t) {
+    tip.textContent = t.getAttribute("data-def"); tip.hidden = false;
+    t.setAttribute("aria-describedby", "wt-tip");
+    var r = t.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, m = 8;
+    var left = Math.min(Math.max(m, r.left), window.innerWidth - w - m);
+    var top = r.bottom + 6;
+    if (top + h > window.innerHeight - m) { top = Math.max(m, r.top - h - 6); }
+    tip.style.left = left + "px"; tip.style.top = top + "px";
+  }
+  function hideTip() { tip.hidden = true; }
+  document.querySelectorAll(".term").forEach(function (t) {
+    t.addEventListener("mouseenter", function () { showTip(t); });
+    t.addEventListener("focus", function () { showTip(t); });
+    t.addEventListener("mouseleave", hideTip);
+    t.addEventListener("blur", hideTip);
+  });
+  window.addEventListener("scroll", hideTip, true);
+
+  // ---------------------------------------------------------------- checklists (local only)
+  var checks = get("checks", {});
+  document.querySelectorAll("input.chk").forEach(function (c) {
+    var id = c.getAttribute("data-chk");
+    if (checks.hasOwnProperty(id)) { c.checked = checks[id]; }
+    c.addEventListener("change", function () { checks[id] = c.checked; put("checks", checks); });
+  });
+
+  // ---------------------------------------------------------------- "updated since you last read"
+  var seen = get("seen", null), changed = [];
+  if (!seen) { seen = {}; D.sections.forEach(function (s) { seen[s.id] = s.hash; }); put("seen", seen); }
+  D.sections.forEach(function (s) { if (seen[s.id] !== s.hash) { changed.push(s); } });
+  function showChanged() {
+    var box = document.getElementById("wt-changed");
+    document.querySelectorAll(".wt-upd").forEach(function (b) { b.parentNode.removeChild(b); });
+    if (!changed.length) { box.hidden = true; return; }
+    changed.forEach(function (s) {
+      var h = document.getElementById(s.id);
+      if (h) { h.insertBefore(el("span", { "class": "wt-upd", text: seen[s.id] ? "Updated" : "New" }), h.querySelector(".wt-hbtn")); }
+    });
+    box.hidden = false; box.textContent = "";
+    box.appendChild(el("strong", { text: changed.length + (changed.length === 1 ? " section changed" : " sections changed") + " since you last read this: " }));
+    changed.forEach(function (s, i) { box.appendChild(el("a", { href: "#" + s.id, text: s.title })); if (i < changed.length - 1) { box.appendChild(document.createTextNode(", ")); } });
+    box.appendChild(document.createTextNode(" "));
+    box.appendChild(btn("Mark as read", "sm", function () {
+      D.sections.forEach(function (s) { seen[s.id] = s.hash; }); put("seen", seen); changed = []; showChanged(); renderToc();
+    }));
+  }
+
+  // ---------------------------------------------------------------- the editor popover
+  var pop = null;
+  function closePop() { if (pop) { pop.parentNode.removeChild(pop); pop = null; } }
+  function openEditor(draft, anchorRect) {
+    closePop(); hideSel();
+    var type = draft.type || "clarify";
+    var ta = el("textarea", { "aria-label": "Note", placeholder: "Your note..." });
+    ta.value = draft.text || "";
+    var help = el("p", { "class": "wt-help" });
+    var typeBtns = el("div", { "class": "wt-types", role: "group", "aria-label": "Note type" });
+    function setType(t) {
+      type = t; help.textContent = TYPES[t].help;
+      Array.prototype.forEach.call(typeBtns.children, function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-t") === t ? "true" : "false"); });
+    }
+    Object.keys(TYPES).forEach(function (t) { typeBtns.appendChild(btn(TYPES[t].label, "sm", function () { setType(t); ta.focus(); }, { "data-t": t })); });
+    function commit() {
+      var text = ta.value.trim();
+      if (!text) { ta.focus(); return; }
+      var now = new Date().toISOString();
+      var existing = null;
+      notes.forEach(function (n) { if (n.id === draft.id) { existing = n; } });
+      if (existing) {
+        if (existing.text !== text || existing.type !== type) { existing.text = text; existing.type = type; existing.updatedAt = now; if (reply(existing)) { existing.reopened = true; } }
+      } else {
+        notes.push({ id: newId(), sec: draft.sec, block: draft.block || null, quote: draft.quote || "", loc: draft.loc || "", type: type, text: text, createdAt: now, updatedAt: now });
+      }
+      closePop(); save(); setOpen(true);
+    }
+    ta.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") { ev.preventDefault(); closePop(); }
+      if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); commit(); }
+    });
+    pop = el("div", { "class": "wt-pop", role: "dialog", "aria-label": "Add note" }, [
+      el("div", { "class": "wt-muted", text: "Note on: " + (secTitle[draft.sec] || "this walkthrough") }),
+      draft.loc ? el("div", { "class": "loc", text: draft.loc }) : null,
+      draft.quote ? el("div", { "class": "q", text: draft.quote }) : null,
+      typeBtns, help, ta,
+      el("div", { "class": "wt-row" }, [el("span", { "class": "sp", text: "⌘/Ctrl+Enter saves · Esc cancels" }), btn("Cancel", "sm", closePop), btn("Save note", "sm primary", commit)])
+    ]);
+    document.body.appendChild(pop);
+    setType(type);
+    var r = anchorRect || { left: window.innerWidth / 2 - 200, bottom: 120, top: 120 };
+    var top = r.bottom + 8, left = Math.min(Math.max(12, r.left), window.innerWidth - pop.offsetWidth - 12);
+    if (top + pop.offsetHeight > window.innerHeight - 12) { top = Math.max(12, r.top - pop.offsetHeight - 8); }
+    pop.style.top = top + "px"; pop.style.left = left + "px";
+    ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+  document.addEventListener("mousedown", function (ev) { if (pop && !pop.contains(ev.target) && ev.target !== selBtn) { closePop(); } });
+
+  // ---------------------------------------------------------------- anchors: selection, code lines, headings
+  function context(node) {
+    var e = node && (node.nodeType === 1 ? node : node.parentElement);
+    var blk = e && e.closest("[data-b]");
+    var sec = (e && e.closest("[data-sec]")) || null;
+    return { el: e, block: blk ? blk.getAttribute("data-b") : null, sec: sec ? sec.getAttribute("data-sec") : "top" };
+  }
+  function codeLoc(a, b) {
+    var ca = a && a.closest && a.closest(".code"), la = a && a.closest && a.closest(".cl"), lb = b && b.closest && b.closest(".cl");
+    if (!ca || !la) { return ""; }
+    var file = ca.getAttribute("data-file") || "snippet";
+    var x = la.getAttribute("data-n"), y = lb && ca.contains(lb) ? lb.getAttribute("data-n") : x;
+    if (!x) { return file; }
+    var lo = Math.min(+x, +y), hi = Math.max(+x, +y);
+    return file + ":" + (lo === hi ? lo : lo + "-" + hi);
+  }
+  var selBtn = el("button", { type: "button", "class": "wt-sel", text: "+ Note", hidden: "" });
+  document.body.appendChild(selBtn);
+  var selDraft = null, selRect = null;
+  function hideSel() { selBtn.hidden = true; selDraft = null; }
+  document.addEventListener("mouseup", function (ev) {
+    if (selBtn.contains(ev.target) || (pop && pop.contains(ev.target))) { return; }
+    setTimeout(function () {
+      var s = window.getSelection();
+      if (!s || s.isCollapsed || !s.rangeCount) { hideSel(); return; }
+      var text = s.toString().trim();
+      var r = s.getRangeAt(0);
+      if (!text || !main.contains(r.commonAncestorContainer)) { hideSel(); return; }
+      var a = context(r.startContainer), b = context(r.endContainer);
+      selDraft = { sec: a.sec, block: a.block, quote: text.length > 600 ? text.slice(0, 600) + "…" : text, loc: codeLoc(a.el, b.el) };
+      selRect = r.getBoundingClientRect();
+      selBtn.hidden = false;
+      selBtn.style.top = (selRect.bottom + window.scrollY + 6) + "px";
+      selBtn.style.left = Math.min(selRect.right + window.scrollX - 60, window.scrollX + window.innerWidth - 90) + "px";
+    }, 0);
+  });
+  selBtn.addEventListener("click", function () { if (selDraft) { openEditor(selDraft, selRect); } });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "n" && !pop && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName) && selDraft) { ev.preventDefault(); openEditor(selDraft, selRect); }
+  });
+
+  main.addEventListener("click", function (ev) {
+    var n = ev.target.closest && ev.target.closest(".cl .n");
+    if (!n || !n.textContent) { return; }
+    var line = n.parentNode, c = context(line);
+    openEditor({ sec: c.sec, block: c.block, quote: line.querySelector(".t").textContent.trim(), loc: codeLoc(line, line) }, line.getBoundingClientRect());
+  });
+
+  document.querySelectorAll("main h2[id], main h3[id]").forEach(function (h) {
+    var b = el("button", { type: "button", "class": "wt-hbtn", text: "+ Note", "aria-label": "Add a note on " + h.textContent.trim() });
+    b.addEventListener("click", function () { openEditor({ sec: h.id }, b.getBoundingClientRect()); });
+    h.appendChild(b);
+  });
+
+  // ---------------------------------------------------------------- export
+  function openNotes() { return notes.filter(function (n) { return !isDone(n); }); }
+  function sortNotes(list) {
+    function o(id) { return secOrder.hasOwnProperty(id) ? secOrder[id] : -1; }
+    return list.slice().sort(function (a, b) { return (o(a.sec) - o(b.sec)) || (a.createdAt < b.createdAt ? -1 : 1); });
+  }
+  function exportText() {
+    var list = sortNotes(openNotes());
+    var out = "# Walkthrough notes\n\n" +
+      "Walkthrough: " + D.title + " (id `" + D.id + "`, version " + D.version + ")\n" +
+      "Source: " + D.source + "\n" +
+      "Apply these with /walkthrough:apply-notes. Reply in replies.json by note id.\n";
+    list.forEach(function (n, i) {
+      out += "\n## " + (i + 1) + ". [" + n.type + "] " + (secTitle[n.sec] || n.sec) + " (#" + n.sec + ")  id: " + n.id + "\n";
+      if (n.loc) { out += "at: " + n.loc + "\n"; }
+      if (n.quote) { out += n.quote.split("\n").map(function (l) { return "> " + l; }).join("\n") + "\n"; }
+      out += n.text + "\n";
+      var r = reply(n);
+      if (r && (n.reopened || r.status !== "resolved")) { out += "(follow-up: your previous reply was: " + r.reply.replace(/\n/g, " ") + ")\n"; }
+    });
+    if (!list.length) { out += "\nNo open notes.\n"; }
+    return out;
+  }
+  function copy(text) {
+    function fallback() {
+      var ta = el("textarea", { "class": "wt-fallback", readonly: "" }); ta.value = text;
+      flashBox = el("div", { "class": "wt-warn" }, ["Copy was blocked here. The text is selected: press ⌘C / Ctrl+C.", ta]);
+      renderPanel(); ta.focus(); ta.select();
+    }
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(function () { flash("Copied " + openNotes().length + " open notes. Paste them to your AI."); }, fallback); }
+    else { fallback(); }
+  }
+  function download() {
+    var name = D.id + "-notes-v" + D.version + ".md";
+    var a = el("a", { href: URL.createObjectURL(new Blob([exportText()], { type: "text/markdown" })), download: name });
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.parentNode.removeChild(a); }, 1000);
+    flash("Saved " + name + " to your downloads. Give the file to your AI.");
+  }
+
+  // ---------------------------------------------------------------- panel
+  var tab = el("button", { type: "button", "class": "wt-tab", onclick: function () { setOpen(true); } });
+  var pbody = el("div", { "class": "wt-pbody" });
+  var phead = el("span");
+  var panel = el("aside", { "class": "wt-panel", "aria-label": "Your notes" }, [
+    el("div", { "class": "wt-phead" }, [phead, btn("Close", "sm", function () { setOpen(false); })]), pbody]);
+  document.body.appendChild(tab); document.body.appendChild(panel);
+  function setOpen(o) { document.body.classList.toggle("wt-open", o); put("open", o); }
+  var flashBox = null;
+  function flash(msg) { flashBox = el("div", { "class": "wt-flash", role: "status", text: msg }); renderPanel(); var mine = flashBox; setTimeout(function () { if (flashBox === mine) { flashBox = null; renderPanel(); } }, 4000); }
+
+  var toast = null, toastTimer = null;
+  function remove(n) {
+    var idx = notes.indexOf(n); if (idx < 0) { return; }
+    notes.splice(idx, 1); save();
+    if (toast) { toast.parentNode.removeChild(toast); clearTimeout(toastTimer); }
+    toast = el("div", { "class": "wt-toast", role: "status" }, ["Note deleted.", btn("Undo", "sm", function () { notes.splice(Math.min(idx, notes.length), 0, n); save(); hideToast(); })]);
+    document.body.appendChild(toast);
+    toastTimer = setTimeout(hideToast, 8000);
+  }
+  function hideToast() { if (toast) { toast.parentNode.removeChild(toast); toast = null; } }
+
+  function noteCard(n) {
+    var r = reply(n), done = isDone(n);
+    var card = el("div", { "class": "wt-n" + (done ? " done" : ""), id: "note-" + n.id }, [
+      el("div", null, [el("span", { "class": "wt-tag " + (done ? "resolved" : n.type), text: done ? "resolved" : TYPES[n.type] ? TYPES[n.type].label : n.type })]),
+      n.loc ? el("div", { "class": "loc", text: n.loc }) : null,
+      n.quote ? el("div", { "class": "q", text: n.quote }) : null,
+      el("div", { "class": "txt", text: n.text }),
+      r ? el("div", { "class": "reply" + (r.status === "resolved" ? "" : " ask"), text: "AI: " + r.reply }) : null
+    ]);
+    var acts = el("div", { "class": "acts" }, [el("span", { "class": "sp", text: when(n.updatedAt) })]);
+    if (n.block || n.sec) { acts.appendChild(btn("Show", "sm", function () { jump(n); })); }
+    if (done) {
+      acts.appendChild(btn("Follow up", "sm", function () { var rc = card.getBoundingClientRect(); n.reopened = true; save(); openEditor(n, rc); }));
+      acts.appendChild(btn("Dismiss", "sm", function () { remove(n); }));
+    } else {
+      acts.appendChild(btn("Edit", "sm", function () { openEditor(n, card.getBoundingClientRect()); }));
+      acts.appendChild(btn("Delete", "sm", function () { remove(n); }));
+    }
+    card.appendChild(acts);
+    return card;
+  }
+  function jump(n) {
+    var t = (n.block && document.querySelector('[data-b="' + n.block + '"]')) || document.getElementById(n.sec);
+    if (t) { t.scrollIntoView({ behavior: "smooth", block: "center" }); t.animate && t.animate([{ background: "var(--hl)" }, { background: "transparent" }], { duration: 1400 }); }
+  }
+  function renderPanel() {
+    var open = openNotes().length, done = notes.length - open;
+    phead.textContent = "Your notes (" + open + " open)";
+    tab.textContent = open ? "Notes (" + open + ")" : "Notes";
+    pbody.textContent = "";
+    if (saveFailed) { pbody.appendChild(el("div", { "class": "wt-warn", text: "This browser is not saving notes for this file. They disappear when you close the tab, so export before you leave." })); }
+    if (flashBox) { pbody.appendChild(flashBox); }
+    pbody.appendChild(el("div", { "class": "wt-tools" }, [
+      btn("Copy for AI", "primary", function () { copy(exportText()); }, open ? null : { disabled: "" }),
+      btn("Download .md", "", download, open ? null : { disabled: "" })
+    ]));
+    pbody.appendChild(el("p", { "class": "wt-muted", text: "Select any text or click a code line number to add a note. Notes stay in this browser only and are not part of the file." }));
+    if (!notes.length) { pbody.appendChild(el("p", { "class": "wt-muted", text: "No notes yet." })); return; }
+    var groups = {}, order = [];
+    sortNotes(notes).forEach(function (n) { if (!groups[n.sec]) { groups[n.sec] = []; order.push(n.sec); } groups[n.sec].push(n); });
+    order.forEach(function (sid) {
+      pbody.appendChild(el("div", { "class": "wt-grp" }, [secTitle[sid] ? el("a", { href: "#" + sid, text: secTitle[sid] }) : el("span", { text: sid === "top" ? "Introduction" : sid + " (section removed)" })]));
+      groups[sid].forEach(function (n) { pbody.appendChild(noteCard(n)); });
+    });
+    if (done) {
+      pbody.appendChild(el("div", { "class": "wt-tools", style: "margin-top:16px" }, [btn("Dismiss all " + done + " resolved", "sm", function () {
+        notes = notes.filter(function (n) { return !isDone(n); }); save();
+      })]));
+    }
+  }
+
+  // ---------------------------------------------------------------- margin markers + toc
+  function renderMarks() {
+    document.querySelectorAll(".wt-mark").forEach(function (m) { m.parentNode.removeChild(m); });
+    var per = {};
+    notes.forEach(function (n) {
+      var key = n.block && document.querySelector('[data-b="' + n.block + '"]') ? n.block : null;
+      if (key) { (per[key] = per[key] || []).push(n); }
+    });
+    Object.keys(per).forEach(function (k) {
+      var t = document.querySelector('[data-b="' + k + '"]'), list = per[k];
+      var allDone = list.every(isDone);
+      var m = el("button", { type: "button", "class": "wt-mark" + (allDone ? " done" : ""), text: String(list.length), title: list.length + " note(s)", "aria-label": "Show notes here" });
+      m.addEventListener("click", function () { setOpen(true); var c = document.getElementById("note-" + list[0].id); if (c) { c.scrollIntoView({ block: "center" }); } });
+      t.appendChild(m);
+    });
+  }
+  function renderToc() {
+    var count = {};
+    openNotes().forEach(function (n) { count[n.sec] = (count[n.sec] || 0) + 1; });
+    var ch = {}; changed.forEach(function (s) { ch[s.id] = 1; });
+    document.querySelectorAll("nav.toc a[data-toc]").forEach(function (a) {
+      var id = a.getAttribute("data-toc");
+      var old = a.parentNode.querySelectorAll(":scope > .toc-badge"); old.forEach(function (o) { o.parentNode.removeChild(o); });
+      var after = a.nextSibling;
+      if (ch[id]) { a.parentNode.insertBefore(el("span", { "class": "toc-badge upd", text: "• updated" }), after); }
+      if (count[id]) { a.parentNode.insertBefore(el("span", { "class": "toc-badge", text: "(" + count[id] + ")" }), after); }
+    });
+  }
+  function renderAll() { renderPanel(); renderMarks(); renderToc(); }
+
+  // highlight current section in the toc
+  if ("IntersectionObserver" in window) {
+    var links = {};
+    document.querySelectorAll("nav.toc a[data-toc]").forEach(function (a) { links[a.getAttribute("data-toc")] = a; });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && links[e.target.id]) {
+          Object.keys(links).forEach(function (k) { links[k].classList.remove("active"); });
+          links[e.target.id].classList.add("active");
+        }
+      });
+    }, { rootMargin: "0px 0px -75% 0px" });
+    document.querySelectorAll("main h2[id], main h3[id]").forEach(function (h) { io.observe(h); });
+  }
+
+  showChanged();
+  renderAll();
+  setOpen(get("open", false) || saveFailed);
+})();
+
+</script>
+</body>
+</html>
